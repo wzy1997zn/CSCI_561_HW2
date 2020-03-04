@@ -141,7 +141,7 @@ class Go:
                 neighbor_enemies.append(neighbor)
 
         killed_someone = False
-        for enemy in neighbors:
+        for enemy in neighbor_enemies:
             if not self.check_if_has_liberty(enemy):  # if some of enemies has no liberty
                 self.remove_killed_stone(enemy)  # if can kill, kill, test_board now can compare with last_board
                 killed_someone = True
