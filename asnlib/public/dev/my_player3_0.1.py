@@ -175,6 +175,8 @@ class RandomPlayer:
         self.move_list = move_list
 
     def get_move(self):
+        if len(self.move_list) == 0:
+            return "PASS"
         from random import choice
         return choice(self.move_list)
 
@@ -212,6 +214,10 @@ def write(result):
 
 if __name__ == '__main__':
     my_player_, last_board_, cur_board_ = read()
-    print()
-    print(Go(my_player_, last_board_, cur_board_).move_list)
-    print()
+    # print()
+    # print(Go(my_player_, last_board_, cur_board_).move_list)
+    # print()
+    go = Go(my_player_, last_board_, cur_board_)
+    result = get_result(go)
+    # print(result)
+    write(result)
