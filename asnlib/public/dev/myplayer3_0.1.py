@@ -4,6 +4,8 @@
 constants
 """
 BOARD_SIZE = 5
+INPUT = "input.txt"
+OUTPUT = "output.txt"
 
 
 class Go:
@@ -90,3 +92,48 @@ class Go:
         :return: boolean, true if violate KO rule
         """
         pass
+
+
+class RandomPlayer:
+    def __init__(self, move_list):
+        self.move_list = move_list
+
+    def get_move(self):
+        from random import choice
+        return choice(self.move_list)
+
+
+def get_result(go):
+    strategy = RandomPlayer(go.move_list)
+    result = strategy.get_move()
+    return result
+
+
+def read():
+    with open(INPUT, 'r') as f:
+        lines = f.readlines()
+        my_player = int(lines[0])
+        last_board = []
+        cur_board = []
+        for i in range(1,BOARD_SIZE+1):
+            cur_line = [int(x) for x in lines[i].strip()]
+            last_board.append(cur_line)
+        for i in range(BOARD_SIZE+1, BOARD_SIZE+BOARD_SIZE+1):
+            cur_line = [int(x) for x in lines[i].strip()]
+            cur_board.append(cur_line)
+        return my_player, last_board, cur_board
+
+
+def write(result):
+    with open(OUTPUT, 'w') as f:
+        if result == 'PASS':
+            f.write("PASS")
+        else:
+            out_result = f'{result[0]},{result[1]}'
+            f.write(out_result)
+        f.close()
+
+
+if __name__ == '__main__':
+    my_player, last_board, cur_board = read()
+    print()
