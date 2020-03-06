@@ -61,8 +61,9 @@ def learn_loop():
     white_player.learn(white_state_action_list)
 
 
-for i in range(10000):
+for i in range(1000):
     learn_loop()
+    print(i)
 
 
 

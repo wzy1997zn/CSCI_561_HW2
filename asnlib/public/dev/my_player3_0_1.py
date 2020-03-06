@@ -1,7 +1,6 @@
 # 6853115445: Ziyue Wang
-
+import random
 from copy import deepcopy
-from random import *
 import os
 
 """
@@ -26,11 +25,12 @@ class Go:
         self.last_board = last_board
         self.cur_board = cur_board
         self.my_player = my_player
-        self.move_list = self.get_all_possible_move()
 
         self.test_board = []  # be used when checking a place is possible or not NEED deepcopy and careful using
 
         self.next_board = []  # reserved for learning strategies' usage
+        self.move_list = self.get_all_possible_move()
+
 
     def get_all_possible_move(self):
         """
@@ -48,9 +48,18 @@ class Go:
                     cur_place = (i, j)
                     if self.check_if_has_liberty(cur_place):  # satisfy 1
                         move_list.append(cur_place)
+                        self.next_board.append(self.test_board)
                     else:
                         if self.check_if_kill_other(cur_place) and not self.check_violate_KO():  # satisfy 2
                             move_list.append(cur_place)
+                            self.next_board.append(self.test_board)
+                    self.test_board = []
+
+        randnum = random.randint(0, 100)
+        random.seed(randnum)
+        random.shuffle(move_list)
+        random.seed(randnum)
+        random.shuffle(self.next_board)
         return move_list
 
     def check_if_has_liberty(self, place=(-1, -1)):
@@ -180,7 +189,7 @@ class RandomPlayer:
         if len(self.move_list) == 0:
             return "PASS"
 
-        return choice(self.move_list)
+        return self.move_list[0]
 
 
 import numpy as np
@@ -250,16 +259,30 @@ class QLearner:
         if board_string not in self.q_values:
             # init Q
             q_val = np.zeros((5, 5))
-            q_val.fill(self.init_value)
-            self.q_values[board_string] = q_val
 
-        # current init Q is 0
-        # what if set 0.5 * total liberty deviation as a part of init Q?
+            # current init Q is 0
+            # what if set 0.5 * total liberty deviation as a part of init Q?
+
+            for i_move in range(len(self.go.move_list)):
+                black_liberty_sum = 0
+                white_liberty_sum = 0
+                move = self.go.move_list[i_move]
+                self.go.test_board = self.go.next_board[i_move]
+                for i in range(BOARD_SIZE):
+                    for j in range(BOARD_SIZE):
+                        # self.go.test_board = deepcopy(self.go.cur_board)
+                        if self.go.test_board[i][j] == BLACK:
+                            black_liberty_sum += self.go.get_liberty((i,j))
+                        if self.go.test_board[i][j] == WHITE:
+                            white_liberty_sum += self.go.get_liberty((i,j))
+
+                q_val[move[0]][move[1]] = (self.init_value + (black_liberty_sum - white_liberty_sum)/20)
+            self.q_values[board_string] = q_val
         return self.q_values[board_string]
 
     def find_max_action(self):
         move_list = self.go.move_list
-        shuffle(move_list)
+        # shuffle(move_list)
         max_next_Q = -np.inf
         max_action = ()
         cur_board_Q = self.Q(self.go.cur_board)
@@ -272,7 +295,7 @@ class QLearner:
 
     def find_min_action(self):
         move_list = self.go.move_list
-        shuffle(move_list)
+
         min_next_Q = np.inf
         min_action = ()
         cur_board_Q = self.Q(self.go.cur_board)
@@ -306,13 +329,13 @@ class QLearner:
     def get_move(self):
         if self.side == BLACK:
             max_action, max_next_Q = self.find_max_action()
-            if max_next_Q < 0:
+            if max_next_Q < -1:
                 self.visual()
                 return "PASS"
             return max_action
         else:
             min_action, min_next_Q = self.find_min_action()
-            if min_next_Q > 0:
+            if min_next_Q > 1:
                 self.visual()
                 return "PASS"
             return min_action
@@ -331,12 +354,14 @@ class QLearner:
 
         with open("QvalueDB.txt", 'a') as f:
             for kv in self.q_values.items():
-                string = kv[0] + '|' + '|'.join(str(x) for x in self.flatten_board(kv[1])) + "\n"
-                f.write(string)
+                if np.where(kv[1] != 0)[0].shape[0] != 0:
+                    string = kv[0] + '|' + '|'.join(str(x) for x in self.flatten_board(kv[1])) + "\n"
+                    f.write(string)
 
 
 def get_result(go):
-    strategy = QLearner(go.move_list)
+    strategy = QLearner()
+    strategy.set_go(go)
     result = strategy.get_move()
     return result
 
