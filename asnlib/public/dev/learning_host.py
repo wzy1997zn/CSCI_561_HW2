@@ -17,6 +17,9 @@ def learn_loop():
     black_state_action_list = []
     white_state_action_list = []
 
+    black_move = []
+    white_move = []
+
     for i in range(24):
 
         # black
@@ -24,6 +27,7 @@ def learn_loop():
 
         black_player.set_go(go)
         black_res = black_player.get_move()
+        blakc_Q = True if len(go.move_list) >= 5 else False
 
         if black_res == "PASS":
             print("black pass")
@@ -35,7 +39,10 @@ def learn_loop():
         host_GO.died_pieces = host_GO.remove_died_pieces(2)
 
         cur_board_ = host_GO.board
-        black_state_action_list.append((last_board_, black_res, deepcopy(cur_board_)))
+        if blakc_Q:
+            black_state_action_list.append((last_board_, black_res, deepcopy(cur_board_)))
+        else:
+            black_move.append((last_board_, black_res))
         host_GO.visualize_board()
 
         # white
@@ -43,6 +50,7 @@ def learn_loop():
 
         white_player.set_go(go)
         white_res = white_player.get_move()
+        white_Q = True if len(go.move_list) >= 5 else False
 
         if white_res == "PASS":
             print("white pass")
@@ -54,14 +62,27 @@ def learn_loop():
         host_GO.died_pieces = host_GO.remove_died_pieces(1)
 
         cur_board_ = host_GO.board
-        white_state_action_list.append((last_board_, white_res, deepcopy(cur_board_)))
+        if white_Q:
+            white_state_action_list.append((last_board_, white_res, deepcopy(cur_board_)))
+        else:
+            white_move.append((last_board_, white_res))
         host_GO.visualize_board()
 
     black_player.learn(black_state_action_list)
     white_player.learn(white_state_action_list)
 
+    # with open("Black_action.txt", 'a') as f:
+    #     for kv in black_move:
+    #         string = ''.join(str(x) for x in black_player.flatten_board(kv[0])) + '|' + str(kv[1][0]) + ',' + str(kv[1][1]) + "\n"
+    #         f.write(string)
+    #
+    # with open("White_action.txt", 'a') as f:
+    #     for kv in white_move:
+    #         string = ''.join(str(x) for x in black_player.flatten_board(kv[0])) + '|' + str(kv[1][0]) + ',' + str(kv[1][1]) + "\n"
+    #         f.write(string)
 
-for i in range(1000):
+
+for i in range(100):
     learn_loop()
     print(i)
 

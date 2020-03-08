@@ -229,8 +229,7 @@ class QLearner:
                 return q_values
 
         with open("QvalueDB.txt", 'r') as f:
-            lines = f.readlines()
-            for line in lines:
+            for line in f:
                 data = line.split('|')
                 board = data[0]
                 q = np.asarray(list(map(float, data[1:])))
