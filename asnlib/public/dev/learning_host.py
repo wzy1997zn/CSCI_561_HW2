@@ -20,7 +20,7 @@ def learn_loop():
     black_move = []
     white_move = []
 
-    for i in range(24):
+    for i in range(12):
 
         # black
         go = my_player3_0_1.Go(my_player_, last_board_, cur_board_)
