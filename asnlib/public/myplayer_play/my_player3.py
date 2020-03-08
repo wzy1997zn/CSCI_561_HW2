@@ -12,6 +12,8 @@ OUTPUT = "output.txt"
 EMPTY = 0
 BLACK = 1
 WHITE = 2
+MIN_MAX_DEPTH = 10
+MIN_MAX_WIDTH = 5
 
 
 class Go:
@@ -30,7 +32,6 @@ class Go:
 
         self.next_board = []  # reserved for learning strategies' usage
         self.move_list = self.get_all_possible_move()
-
 
     def get_all_possible_move(self):
         """
@@ -218,10 +219,20 @@ class QLearner:
         self.q_values = self.init_q_values()  # <board_string, Q[][]>
 
     def set_go(self, go):
+        """
+        inject go into qlearner
+        :param go: the game
+        :return: none
+        """
         self.go = go
         self.side = go.my_player
 
     def init_q_values(self):
+        """
+        read QvalueDB
+        may be removed in next edition
+        :return: none
+        """
         q_values = {}
 
         if not os.path.exists('QvalueDB.txt'):
@@ -238,53 +249,125 @@ class QLearner:
         return q_values
 
     def flatten_board(self, board):
+        """
+        change 2D board to 1D list
+        :param board: [][]
+        :return: []
+        """
         return [i for row in board for i in row]
 
     def board_string(self, board):
+        """
+        get string form board
+        :param board: [][]
+        :return: ''
+        """
         return ''.join(str(x) for x in self.flatten_board(board))
 
     def board_value(self, board):
+        """
+        get BLACK how better than WHITE
+        BLACK - WHITE + KOMI
+        :param board: calculating board
+        :return: BLACK - WHITE + KOMI
+        """
         flatten_board = self.flatten_board(board)
         board_value = flatten_board.count(1) - flatten_board.count(
             2) + QLearner.KOMI  # BLACK - WHITE + KOMI means BLACK how better than WHITE
         return board_value
 
     def R(self, board_before, board_after):
+        """
+        Reward in the Qlearn function
+        R = afterValue - beforeValue
+        :param board_before:
+        :param board_after:
+        :return:
+        """
         R = self.board_value(board_after) - self.board_value(board_before)
         return R
 
     def Q(self, board):
+        """
+        get Q value map of a board
+        I think initQ is a kind of heuristic, it shows what is important.
+        Currently, initQ is a combine of "how many I can kill" and "how much more liberty can I have than the enemy".
+        :param board:
+        :return: 5*5 map of Qvalue
+        """
         board_string = self.board_string(board)
         if board_string not in self.q_values:
             # init Q
-            q_val = np.zeros((5, 5))
-
-            # current init Q is 0
-            # what if set 0.5 * total liberty deviation as a part of init Q?
+            q_val = np.zeros((BOARD_SIZE, BOARD_SIZE))
 
             for i_move in range(len(self.go.move_list)):
                 black_liberty_sum = 0
                 white_liberty_sum = 0
+                black_sum = 0
+                white_sum = 0
                 move = self.go.move_list[i_move]
                 self.go.test_board = self.go.next_board[i_move]
                 for i in range(BOARD_SIZE):
                     for j in range(BOARD_SIZE):
                         # self.go.test_board = deepcopy(self.go.cur_board)
-                        if self.go.test_board[i][j] == BLACK:
-                            black_liberty_sum += self.go.get_liberty((i,j))
-                        if self.go.test_board[i][j] == WHITE:
-                            white_liberty_sum += self.go.get_liberty((i,j))
-
-                q_val[move[0]][move[1]] = (self.init_value + (black_liberty_sum - white_liberty_sum)/20)
+                        # if self.go.test_board[i][j] == BLACK:
+                        #     black_liberty_sum += 1
+                        # if self.go.test_board[i][j] == WHITE:
+                        #     white_liberty_sum += 1
+                        is_black_liberty = False
+                        is_white_liberty = False
+                        if self.go.test_board[i][j] == EMPTY:
+                            for place in self.go.get_neighbor((i,j)):
+                                neighbor = self.go.test_board[place[0]][place[1]]
+                                if neighbor == BLACK:
+                                    is_black_liberty = True
+                                if neighbor == WHITE:
+                                    is_white_liberty = True
+                        if is_black_liberty:
+                            black_liberty_sum += 1
+                        if is_white_liberty:
+                            white_liberty_sum += 1
+                kill_reward = self.board_value(self.go.test_board) - self.board_value(board)
+                q_val[move[0]][move[1]] = (self.init_value + (black_liberty_sum - white_liberty_sum) / 20 + kill_reward / 10)
             self.q_values[board_string] = q_val
         return self.q_values[board_string]
 
     def find_max_action(self):
+        """
+        Black move strategy
+        :return: (x,y)
+        """
         move_list = self.go.move_list
         # shuffle(move_list)
+        if len(move_list) <= MIN_MAX_WIDTH:
+            return self.find_max_by_alpha_beta()
+        else:
+            cur_board_Q = self.Q(self.go.cur_board)
+            return self.find_max_by_Q(move_list, cur_board_Q)
+
+    def find_min_action(self):
+        """
+        White move strategy
+        :return: (x,y)
+        """
+        move_list = self.go.move_list
+
+        if len(move_list) <= MIN_MAX_WIDTH:
+            return self.find_min_by_alpha_beta()
+        else:
+            cur_board_Q = self.Q(self.go.cur_board)
+            return self.find_min_by_Q(move_list, cur_board_Q)
+
+    def find_max_by_Q(self, move_list, cur_board_Q):
+        """
+        if the number of branch is more than width limit, use Qvalue to find action.
+        :param move_list:
+        :param cur_board_Q:
+        :return:
+        """
+        # cur_board_Q = self.Q(self.go.cur_board)
         max_next_Q = -np.inf
         max_action = ()
-        cur_board_Q = self.Q(self.go.cur_board)
         for action in move_list:
             next_Q = cur_board_Q[action[0]][action[1]]
             if next_Q > max_next_Q:
@@ -292,18 +375,96 @@ class QLearner:
                 max_action = action
         return max_action, max_next_Q
 
-    def find_min_action(self):
-        move_list = self.go.move_list
-
+    def find_min_by_Q(self, move_list, cur_board_Q):
+        """
+        if the number of branch is more than width limit, use Qvalue to find action.
+        :param move_list:
+        :param cur_board_Q:
+        :return:
+        """
         min_next_Q = np.inf
         min_action = ()
-        cur_board_Q = self.Q(self.go.cur_board)
+
         for action in move_list:
             next_Q = cur_board_Q[action[0]][action[1]]
             if next_Q < min_next_Q:
                 min_next_Q = next_Q
                 min_action = action
         return min_action, min_next_Q
+
+    def find_max_by_alpha_beta(self):
+        """
+        if there are not too much branches, use min-max
+        :return:
+        """
+        max_action, max_next_Q = self.max_value(self.go.last_board, self.go.cur_board, -np.inf, np.inf, 0)
+        return max_action, max_next_Q
+
+    def find_min_by_alpha_beta(self):
+        """
+        if there are not too much branches, use min-max
+        :return:
+        """
+        min_action, min_next_Q = self.min_value(self.go.last_board, self.go.cur_board, -np.inf, np.inf, 0)
+        return min_action, min_next_Q
+
+    def max_value(self, last_board, cur_board, alpha, beta, step):
+        """
+        max step implement
+        if too deep, return an estimated solution by Qvalue.
+        same in min step
+        :param last_board: for KOMI test
+        :param cur_board: get possible actions
+        :param step: pass step to limit depth
+        """
+        go_test = Go(1, last_board, cur_board)
+        move_list = go_test.move_list
+        if len(move_list) == 0:
+            return "PASS", self.board_value(cur_board)
+        if len(move_list) > MIN_MAX_WIDTH or step > MIN_MAX_DEPTH:
+            move, Q = self.find_max_by_Q(move_list, self.Q(cur_board))
+            return move, Q + self.board_value(cur_board)
+        v = -np.inf
+        max_action = ()
+        for i in range(len(move_list)):
+            action = move_list[i]
+            next_board = go_test.next_board[i]
+            min_action, min_value = self.min_value(cur_board, next_board, alpha, beta, step+1)
+            if min_value > v:
+                v = min_value
+                max_action = action
+            if v >= beta:
+                return action, v
+            alpha = max(alpha, v)
+        return max_action, v
+
+    def min_value(self, last_board, cur_board, alpha, beta, step):
+        """
+        min step implement
+        :param last_board: for KOMI test
+        :param cur_board: get possible actions
+        :param step: pass step to limit depth
+        """
+        go_test = Go(2, last_board, cur_board)
+        move_list = go_test.move_list
+        if len(move_list) == 0:
+            return "PASS", self.board_value(cur_board)
+        if len(move_list) > MIN_MAX_WIDTH or step > MIN_MAX_DEPTH:
+            move, Q = self.find_min_by_Q(move_list, self.Q(cur_board))
+            return move, Q + self.board_value(cur_board)
+        v = np.inf
+        min_action = ()
+        for i in range(len(move_list)):
+            action = move_list[i]
+            next_board = go_test.next_board[i]
+            max_action, max_value = self.max_value(cur_board, next_board, alpha, beta, step+1)
+            if max_value < v:
+                v = max_value
+                min_action = action
+            if v <= alpha:
+                return action, v
+            beta = max(beta, v)
+        return min_action, v
 
     def visual(self):
         """
@@ -326,20 +487,29 @@ class QLearner:
         print('-' * len(board) * 2)
 
     def get_move(self):
+        """
+        different move for black and white
+        :return:
+        """
         if self.side == BLACK:
             max_action, max_next_Q = self.find_max_action()
-            if max_next_Q < -1:
-                self.visual()
-                return "PASS"
+            # if max_next_Q < -1:
+            #     self.visual()
+            #     return "PASS"
             return max_action
         else:
             min_action, min_next_Q = self.find_min_action()
-            if min_next_Q > 1:
-                self.visual()
-                return "PASS"
+            # if min_next_Q > 1:
+            #     self.visual()
+            #     return "PASS"
             return min_action
 
     def learn(self, state_action_list):
+        """
+        record all Qvalues of reached (state,action)
+        :param state_action_list: state_action_state, for calcuate qvalue
+        :return:
+        """
         for state_action_state in state_action_list:
             board_before, move, board_after = state_action_state
             q_t = self.Q(board_before)
@@ -347,7 +517,7 @@ class QLearner:
             max_q_value = np.max(q_t1)
 
             q_t[move[0]][move[1]] = (1 - self.alpha) * q_t[move[0]][move[1]] \
-                                  + self.alpha * (self.R(board_before, board_after) + self.gamma * max_q_value)
+                                    + self.alpha * (self.R(board_before, board_after) + self.gamma * max_q_value)
 
             self.q_values[self.board_string(board_before)] = q_t
 
@@ -395,3 +565,4 @@ if __name__ == '__main__':
     go = Go(my_player_, last_board_, cur_board_)
     result = get_result(go)
     write(result)
+
