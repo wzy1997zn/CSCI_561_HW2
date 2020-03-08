@@ -402,6 +402,8 @@ class QLearner:
                     # q_val[move[0]][move[1]] -= white_liberty_sum / 50
                     q_val[move[0]][move[1]] += move_connection
                     q_val[move[0]][move[1]] += fill_self_punishment
+
+                    q_val[move[0]][move[1]] += kill_reward * 0.1  # try to kill to win KOMI
                 else:
                     # q_val[move[0]][move[1]] += black_liberty_sum / 50
                     q_val[move[0]][move[1]] -= move_connection
@@ -491,7 +493,7 @@ class QLearner:
         max step implement
         if too deep, return an estimated solution by Qvalue.
         same in min step
-        :param last_board: for KOMI test
+        :param last_board: for KO test
         :param cur_board: get possible actions
         :param step: pass step to limit depth
         """
@@ -519,7 +521,7 @@ class QLearner:
     def min_value(self, last_board, cur_board, alpha, beta, step):
         """
         min step implement
-        :param last_board: for KOMI test
+        :param last_board: for KO test
         :param cur_board: get possible actions
         :param step: pass step to limit depth
         """
