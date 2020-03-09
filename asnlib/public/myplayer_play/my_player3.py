@@ -13,8 +13,8 @@ OUTPUT = "output.txt"
 EMPTY = 0
 BLACK = 1
 WHITE = 2
-MIN_MAX_DEPTH = 2
-MIN_MAX_WIDTH = 25
+MIN_MAX_DEPTH = 1
+MIN_MAX_WIDTH = 26
 
 
 class Go:
@@ -262,7 +262,9 @@ class QLearner:
         self.alpha = alpha
         self.gamma = gamma
         self.init_value = init_value
-        self.q_values = self.init_q_values()  # <board_string, Q[][]>
+        self.q_values = {}
+        self.q_values[BLACK] = self.init_q_values(1)  # <board_string, Q[][]>
+        self.q_values[WHITE] = self.init_q_values(2)
 
     def set_go(self, go):
         """
@@ -273,19 +275,19 @@ class QLearner:
         self.go = go
         self.side = go.my_player
 
-    def init_q_values(self):
+    def init_q_values(self, side):
         """
         read QvalueDB
         may be removed in next edition
         :return: none
         """
         q_values = {}
-
-        if not os.path.exists('QvalueDB.txt'):
-            with open("QvalueDB.txt", 'w') as f:
+        file_name = "QvalueDB_" + str(side) + ".txt"
+        if not os.path.exists(file_name):
+            with open(file_name, 'w') as f:
                 return q_values
 
-        with open("QvalueDB.txt", 'r') as f:
+        with open(file_name, 'r') as f:
             for line in f:
                 data = line.split('|')
                 board = data[0]
@@ -343,7 +345,7 @@ class QLearner:
         """
         board = local_go.cur_board
         board_string = self.board_string(board)
-        if board_string not in self.q_values:
+        if board_string not in self.q_values[local_go.my_player]:
             # init Q
             q_val = np.zeros((BOARD_SIZE, BOARD_SIZE))
 
@@ -402,13 +404,15 @@ class QLearner:
                     # q_val[move[0]][move[1]] -= white_liberty_sum / 50
                     q_val[move[0]][move[1]] += move_connection
                     q_val[move[0]][move[1]] += fill_self_punishment
+
+                    q_val[move[0]][move[1]] += kill_reward * 0.1  # try to kill to win KOMI
                 else:
                     # q_val[move[0]][move[1]] += black_liberty_sum / 50
                     q_val[move[0]][move[1]] -= move_connection
                     q_val[move[0]][move[1]] -= fill_self_punishment
 
-            self.q_values[board_string] = q_val
-        return self.q_values[board_string]
+            self.q_values[local_go.my_player][board_string] = q_val
+        return self.q_values[local_go.my_player][board_string]
 
     def find_max_action(self):
         """
@@ -491,7 +495,7 @@ class QLearner:
         max step implement
         if too deep, return an estimated solution by Qvalue.
         same in min step
-        :param last_board: for KOMI test
+        :param last_board: for KO test
         :param cur_board: get possible actions
         :param step: pass step to limit depth
         """
@@ -499,7 +503,7 @@ class QLearner:
         move_list = go_test.move_list
         if len(move_list) == 0:
             return "PASS", self.board_value(cur_board)
-        if len(move_list) > MIN_MAX_WIDTH or step > MIN_MAX_DEPTH + int(BOARD_SIZE - len(move_list) ** 0.5):
+        if len(move_list) + step * 4 > MIN_MAX_WIDTH or step > MIN_MAX_DEPTH + int(BOARD_SIZE - len(move_list) ** 0.5):
             move, Q = self.find_max_by_Q(move_list, self.Q(go_test))
             return move, Q + self.board_value(cur_board)
         v = -np.inf
@@ -519,7 +523,7 @@ class QLearner:
     def min_value(self, last_board, cur_board, alpha, beta, step):
         """
         min step implement
-        :param last_board: for KOMI test
+        :param last_board: for KO test
         :param cur_board: get possible actions
         :param step: pass step to limit depth
         """
@@ -527,7 +531,7 @@ class QLearner:
         move_list = go_test.move_list
         if len(move_list) == 0:
             return "PASS", self.board_value(cur_board)
-        if len(move_list) > MIN_MAX_WIDTH or step > MIN_MAX_DEPTH + int(BOARD_SIZE - len(move_list) ** 0.5):
+        if len(move_list) + step * 4 > MIN_MAX_WIDTH or step > MIN_MAX_DEPTH + int(BOARD_SIZE - len(move_list) ** 0.5):
             move, Q = self.find_min_by_Q(move_list, self.Q(go_test))
             return move, Q + self.board_value(cur_board)
         v = np.inf
@@ -603,11 +607,16 @@ class QLearner:
             q_t[move[0]][move[1]] = (1 - self.alpha) * q_t[move[0]][move[1]] \
                                     + self.alpha * (self.R(board_before, board_after) + self.gamma * max_q_value)
 
-            self.q_values[self.board_string(board_before)] = q_t
+            self.q_values[self.side][self.board_string(board_before)] = q_t
             update_qvalues[self.board_string(board_before)] = q_t
 
-        with open("QvalueDB.txt", 'a') as f:
-            for kv in update_qvalues.items():
+        self.q_values[self.side] = self.init_q_values(self.side)
+        for kv in update_qvalues.items():
+            self.q_values[self.side][kv[0]] = kv[1]
+
+        file_name = "QvalueDB_" + str(self.side) + ".txt"
+        with open(file_name, 'w') as f:
+            for kv in self.q_values[self.side].items():
                 if np.where(kv[1] != 0)[0].shape[0] != 0:
                     string = kv[0] + '|' + '|'.join(str(x) for x in self.flatten_board(kv[1])) + "\n"
                     f.write(string)
@@ -652,22 +661,23 @@ if __name__ == '__main__':
     write(result)
     # my_player_ = 1
     # last_board_ = [
-    #     [1,0,1,2,2],
-    #     [0,1,1,2,0],
-    #     [1,1,1,2,1],
-    #     [1,2,2,0,2],
-    #     [1,1,2,2,0]
+    #     [0,0,0,0,0],
+    #     [0,0,0,0,0],
+    #     [0,0,0,0,0],
+    #     [0,0,0,0,0],
+    #     [0,0,0,0,0]
     # ]
     # cur_board_ = [
-    #     [1, 0, 1, 2, 2],
-    #     [0, 1, 1, 2, 0],
-    #     [1, 1, 1, 2, 1],
-    #     [1, 2, 2, 2, 2],
-    #     [1, 1, 2, 2, 0]
+    #     [0, 0, 0, 0, 0],
+    #     [0, 0, 0, 0, 0],
+    #     [0, 0, 0, 0, 0],
+    #     [0, 0, 0, 0, 0],
+    #     [0, 0, 0, 0, 0]
     # ]
     # go = Go(my_player_, last_board_, cur_board_)
     # q = QLearner()
     # q.set_go(go)
+    # q.get_move()
     # q.Q(go)
     # print()
 
