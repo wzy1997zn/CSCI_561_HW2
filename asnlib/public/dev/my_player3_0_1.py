@@ -1,8 +1,9 @@
 # 6853115445: Ziyue Wang
 import random
-from copy import deepcopy
+# from copy import deepcopy
 import os
 import math
+import numpy as np
 
 """
 constants
@@ -13,8 +14,41 @@ OUTPUT = "output.txt"
 EMPTY = 0
 BLACK = 1
 WHITE = 2
-MIN_MAX_DEPTH = 1
-MIN_MAX_WIDTH = 26
+MIN_MAX_DEPTH = 2
+MIN_MAX_WIDTH = 28
+
+
+def deepcopy(board):
+    return np.asarray(board).tolist()
+
+
+board_move_list_dict = {}  # speedup
+board_next_board_dict = {}
+
+
+def flatten_board(board):
+    """
+    change 2D board to 1D list
+    :param board: [][]
+    :return: []
+    """
+    return [i for row in board for i in row]
+
+
+def board_string(board):
+    """
+    get string form board
+    :param board: [][]
+    :return: ''
+    """
+    return ''.join(str(x) for x in flatten_board(board))
+
+
+magic_order = [(2, 2), (1, 2), (3, 2), (2, 3), (2, 1),
+               (3, 3), (1, 1), (1, 3), (3, 1), (2, 4),
+               (2, 0), (4, 2), (0, 2), (3, 0), (1, 4),
+               (0, 1), (4, 3), (1, 0), (3, 4), (4, 1),
+               (0, 3), (0, 0), (4, 4), (0, 4), (4, 0)]
 
 
 class Go:
@@ -25,6 +59,8 @@ class Go:
         :param last_board: line 2-6
         :param cur_board: line 7-11
         """
+        # self.last_board = np.asarray(last_board)
+        # self.cur_board = np.asarray(cur_board)
         self.last_board = last_board
         self.cur_board = cur_board
         self.my_player = my_player
@@ -34,6 +70,13 @@ class Go:
         self.next_board = []  # reserved for learning strategies' usage
         self.move_list = self.get_all_possible_move()
 
+        # avoid always same search order
+        # randnum = random.randint(0, 100)
+        # random.seed(randnum)
+        # random.shuffle(self.move_list)
+        # random.seed(randnum)
+        # random.shuffle(self.next_board)
+
     def get_all_possible_move(self):
         """
         check all 0s and find all
@@ -41,28 +84,30 @@ class Go:
           2. no liberty but can kill enemy and not violate KO rule
         :return: a list of possible moves on the board
         """
+        board_str = board_string(self.cur_board)
+        if board_str in board_move_list_dict:
+            self.next_board = board_next_board_dict[board_str]
+            return board_move_list_dict[board_str]
+
         move_list = []
-        for i in range(BOARD_SIZE):
-            for j in range(BOARD_SIZE):  # for all positions
-                if self.cur_board[i][j] == EMPTY:  # can place
-                    self.test_board = deepcopy(self.cur_board)
-                    self.test_board[i][j] = self.my_player  # place new stone
-                    cur_place = (i, j)
-                    if self.check_if_has_liberty(cur_place):  # satisfy 1
-                        self.check_if_kill_other(cur_place)
+        for i, j in magic_order:
+            # for all positions
+            if self.cur_board[i][j] == EMPTY:  # can place
+                self.test_board = deepcopy(self.cur_board)
+                self.test_board[i][j] = self.my_player  # place new stone
+                cur_place = (i, j)
+                if self.check_if_has_liberty(cur_place):  # satisfy 1
+                    self.check_if_kill_other(cur_place)
+                    move_list.append(cur_place)
+                    self.next_board.append(self.test_board)
+                else:
+                    if self.check_if_kill_other(cur_place) and not self.check_violate_KO():  # satisfy 2
                         move_list.append(cur_place)
                         self.next_board.append(self.test_board)
-                    else:
-                        if self.check_if_kill_other(cur_place) and not self.check_violate_KO():  # satisfy 2
-                            move_list.append(cur_place)
-                            self.next_board.append(self.test_board)
-                    self.test_board = []
+                self.test_board = []
 
-        randnum = random.randint(0, 100)
-        random.seed(randnum)
-        random.shuffle(move_list)
-        random.seed(randnum)
-        random.shuffle(self.next_board)
+        board_move_list_dict[board_str] = move_list
+        board_next_board_dict[board_str] = self.next_board
         return move_list
 
     def check_if_has_liberty(self, place=(-1, -1)):
@@ -106,11 +151,15 @@ class Go:
         """
         cur_place_player = self.test_board[place[0]][place[1]]
         neighbors = self.get_neighbor(place)
+        # ally_neighbors = list(filter(lambda neighbor: self.test_board[neighbor[0]][neighbor[1]] != cur_place_player, neighbors))
+        # ally_neighbors = [x for x in neighbors if self.test_board[x[0]][x[1]] != cur_place_player]
+        # print(ally_neighbors)
         ally_neighbors = []
         for neighbor in neighbors:
             neighbor_player = self.test_board[neighbor[0]][neighbor[1]]
             if neighbor_player == cur_place_player:
                 ally_neighbors.append(neighbor)
+
         return ally_neighbors
 
     def get_neighbor(self, place=(-1, -1)):
@@ -120,14 +169,28 @@ class Go:
         :return: a list of direct neighbors
         """
         neighbors = []
-        if place[0] > 0:
-            neighbors.append((place[0] - 1, place[1]))
-        if place[0] < BOARD_SIZE - 1:
-            neighbors.append((place[0] + 1, place[1]))
-        if place[1] > 0:
-            neighbors.append((place[0], place[1] - 1))
-        if place[1] < BOARD_SIZE - 1:
-            neighbors.append((place[0], place[1] + 1))
+        x = place[0]
+        y = place[1]
+        a = x - 1
+        b = x + 1
+        c = y - 1
+        d = y + 1
+        # if place[0] > 0:
+        #     neighbors.append((place[0] - 1, place[1]))
+        # if place[0] < 4:
+        #     neighbors.append((place[0] + 1, place[1]))
+        # if place[1] > 0:
+        #     neighbors.append((place[0], place[1] - 1))
+        # if place[1] < 4:
+        #     neighbors.append((place[0], place[1] + 1))
+        if x > 0:
+            neighbors.append((a, y))
+        if x < 4:
+            neighbors.append((b, y))
+        if y > 0:
+            neighbors.append((x, c))
+        if y < 4:
+            neighbors.append((x, d))
         return neighbors
 
     def get_corner_ally(self, place=(-1, -1)):
@@ -141,7 +204,7 @@ class Go:
         if place[0] > 0 and place[1] > 0 \
                 and self.test_board[place[0] - 1][place[1] - 1] == cur_place_player:
             corners.append((place[0] - 1, place[1] - 1))
-        if place[0] < BOARD_SIZE - 1 and place[1] < BOARD_SIZE -1 \
+        if place[0] < BOARD_SIZE - 1 and place[1] < BOARD_SIZE - 1 \
                 and self.test_board[place[0] + 1][place[1] + 1] == cur_place_player:
             corners.append((place[0] + 1, place[1] + 1))
         if place[1] > 0 and place[0] < BOARD_SIZE - 1 \
@@ -239,9 +302,6 @@ class RandomPlayer:
         return self.move_list[0]
 
 
-import numpy as np
-
-
 class QLearner:
     """
     Qlearner for Little-GO
@@ -296,22 +356,6 @@ class QLearner:
                 q_values[board] = q
         return q_values
 
-    def flatten_board(self, board):
-        """
-        change 2D board to 1D list
-        :param board: [][]
-        :return: []
-        """
-        return [i for row in board for i in row]
-
-    def board_string(self, board):
-        """
-        get string form board
-        :param board: [][]
-        :return: ''
-        """
-        return ''.join(str(x) for x in self.flatten_board(board))
-
     def board_value(self, board):
         """
         get BLACK how better than WHITE
@@ -319,8 +363,8 @@ class QLearner:
         :param board: calculating board
         :return: BLACK - WHITE + KOMI
         """
-        flatten_board = self.flatten_board(board)
-        board_value = flatten_board.count(1) - flatten_board.count(
+        flatten = flatten_board(board)
+        board_value = flatten.count(1) - flatten.count(
             2) + QLearner.KOMI  # BLACK - WHITE + KOMI means BLACK how better than WHITE
         return board_value
 
@@ -344,8 +388,8 @@ class QLearner:
         :return: 5*5 map of Qvalue
         """
         board = local_go.cur_board
-        board_string = self.board_string(board)
-        if board_string not in self.q_values[local_go.my_player]:
+        board_str = board_string(board)
+        if board_str not in self.q_values[local_go.my_player]:
             # init Q
             q_val = np.zeros((BOARD_SIZE, BOARD_SIZE))
 
@@ -366,7 +410,7 @@ class QLearner:
                         is_black_liberty = False
                         is_white_liberty = False
                         if local_go.test_board[i][j] == EMPTY:
-                            for place in local_go.get_neighbor((i,j)):
+                            for place in local_go.get_neighbor((i, j)):
                                 neighbor = local_go.test_board[place[0]][place[1]]
                                 if neighbor == BLACK:
                                     is_black_liberty = True
@@ -411,8 +455,8 @@ class QLearner:
                     q_val[move[0]][move[1]] -= move_connection
                     q_val[move[0]][move[1]] -= fill_self_punishment
 
-            self.q_values[local_go.my_player][board_string] = q_val
-        return self.q_values[local_go.my_player][board_string]
+            self.q_values[local_go.my_player][board_str] = q_val
+        return self.q_values[local_go.my_player][board_str]
 
     def find_max_action(self):
         """
@@ -511,7 +555,7 @@ class QLearner:
         for i in range(len(move_list)):
             action = move_list[i]
             next_board = go_test.next_board[i]
-            min_action, min_value = self.min_value(cur_board, next_board, alpha, beta, step+1)
+            min_action, min_value = self.min_value(cur_board, next_board, alpha, beta, step + 1)
             if min_value > v:
                 v = min_value
                 max_action = action
@@ -539,7 +583,7 @@ class QLearner:
         for i in range(len(move_list)):
             action = move_list[i]
             next_board = go_test.next_board[i]
-            max_action, max_value = self.max_value(cur_board, next_board, alpha, beta, step+1)
+            max_action, max_value = self.max_value(cur_board, next_board, alpha, beta, step + 1)
             if max_value < v:
                 v = max_value
                 min_action = action
@@ -607,8 +651,8 @@ class QLearner:
             q_t[move[0]][move[1]] = (1 - self.alpha) * q_t[move[0]][move[1]] \
                                     + self.alpha * (self.R(board_before, board_after) + self.gamma * max_q_value)
 
-            self.q_values[self.side][self.board_string(board_before)] = q_t
-            update_qvalues[self.board_string(board_before)] = q_t
+            self.q_values[self.side][board_string(board_before)] = q_t
+            update_qvalues[board_string(board_before)] = q_t
 
         self.q_values[self.side] = self.init_q_values(self.side)
         for kv in update_qvalues.items():
@@ -618,7 +662,7 @@ class QLearner:
         with open(file_name, 'w') as f:
             for kv in self.q_values[self.side].items():
                 if np.where(kv[1] != 0)[0].shape[0] != 0:
-                    string = kv[0] + '|' + '|'.join(str(x) for x in self.flatten_board(kv[1])) + "\n"
+                    string = kv[0] + '|' + '|'.join(str(x) for x in flatten_board(kv[1])) + "\n"
                     f.write(string)
 
 
@@ -661,23 +705,19 @@ if __name__ == '__main__':
     # write(result)
     my_player_ = 1
     last_board_ = [
-        [0,0,0,0,0],
-        [0,0,0,0,0],
-        [0,0,0,0,0],
-        [0,0,0,0,0],
-        [0,0,0,0,0]
+        [0, 0, 0, 0, 0],
+        [0, 2, 1, 1, 0],
+        [0, 0, 0, 1, 0],
+        [0, 0, 2, 1, 0],
+        [0, 0, 0, 2, 0]
     ]
     cur_board_ = [
         [0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0]
+        [0, 2, 1, 1, 0],
+        [0, 0, 0, 1, 0],
+        [0, 0, 2, 1, 0],
+        [0, 2, 0, 2, 0]
     ]
     go = Go(my_player_, last_board_, cur_board_)
-    q = QLearner()
-    q.set_go(go)
-    q.get_move()
-    q.Q(go)
-    print()
-
+    result = get_result(go)
+    write(result)

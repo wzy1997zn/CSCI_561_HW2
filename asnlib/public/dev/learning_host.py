@@ -3,6 +3,8 @@ from copy import deepcopy
 import my_player3_0_1
 import host
 
+import time
+
 
 def learn_loop():
     my_player_ = 1
@@ -23,12 +25,13 @@ def learn_loop():
     for i in range(12):
 
         # black
+        interval_b = time.time()
         go = my_player3_0_1.Go(my_player_, last_board_, cur_board_)
 
         black_player.set_go(go)
         black_res = black_player.get_move()
         # blakc_Q = True if len(go.move_list) >= 5 else False
-
+        time_b = time.time() - interval_b
         if black_res == "PASS":
             print("black pass")
             break
@@ -43,14 +46,16 @@ def learn_loop():
         black_state_action_list.append((last_board_, black_res, deepcopy(cur_board_)))
 
         host_GO.visualize_board()
+        print(time_b)
 
         # white
+        interval_w = time.time()
         go = my_player3_0_1.Go(2, last_board_, cur_board_)
 
         white_player.set_go(go)
         white_res = white_player.get_move()
         # white_Q = True if len(go.move_list) >= 5 else False
-
+        time_w = time.time() - interval_w
         if white_res == "PASS":
             print("white pass")
             break
@@ -65,6 +70,7 @@ def learn_loop():
         white_state_action_list.append((last_board_, white_res, deepcopy(cur_board_)))
 
         host_GO.visualize_board()
+        print(time_w)
 
     black_player.learn(black_state_action_list)
     white_player.learn(white_state_action_list)
@@ -218,19 +224,19 @@ def white_random_learn():
     white_player.learn(white_state_action_list)
 
 
-for i in range(1000):
-    black_random_learn()
-    # white_random_learn()
-    # learn_loop()
-    print(i)
+# for i in range(1000):
+#     black_random_learn()
+#     # white_random_learn()
+#     # learn_loop()
+#     print(i)
+#
+# for i in range(1000):
+#     # black_random_learn()
+#     white_random_learn()
+#     # learn_loop()
+#     print(i)
 
-for i in range(1000):
-    # black_random_learn()
-    white_random_learn()
-    # learn_loop()
-    print(i)
-
-for i in range(1000):
+for i in range(10):
     # black_random_learn()
     # white_random_learn()
     learn_loop()
