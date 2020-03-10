@@ -15,7 +15,7 @@ EMPTY = 0
 BLACK = 1
 WHITE = 2
 MIN_MAX_DEPTH = 2
-MIN_MAX_WIDTH = 28
+MIN_MAX_WIDTH = 35
 
 
 def deepcopy(board):
@@ -49,6 +49,7 @@ magic_order = [(2, 2), (1, 2), (3, 2), (2, 3), (2, 1),
                (2, 0), (4, 2), (0, 2), (3, 0), (1, 4),
                (0, 1), (4, 3), (1, 0), (3, 4), (4, 1),
                (0, 3), (0, 0), (4, 4), (0, 4), (4, 0)]
+# not good at all, at least for learning, always show same board
 
 
 class Go:
@@ -71,11 +72,11 @@ class Go:
         self.move_list = self.get_all_possible_move()
 
         # avoid always same search order
-        # randnum = random.randint(0, 100)
-        # random.seed(randnum)
-        # random.shuffle(self.move_list)
-        # random.seed(randnum)
-        # random.shuffle(self.next_board)
+        randnum = random.randint(0, 100)
+        random.seed(randnum)
+        random.shuffle(self.move_list)
+        random.seed(randnum)
+        random.shuffle(self.next_board)
 
     def get_all_possible_move(self):
         """
@@ -90,21 +91,23 @@ class Go:
             return board_move_list_dict[board_str]
 
         move_list = []
-        for i, j in magic_order:
+        # for i, j in magic_order:
+        for i in range(BOARD_SIZE):
+            for j in range(BOARD_SIZE):
             # for all positions
-            if self.cur_board[i][j] == EMPTY:  # can place
-                self.test_board = deepcopy(self.cur_board)
-                self.test_board[i][j] = self.my_player  # place new stone
-                cur_place = (i, j)
-                if self.check_if_has_liberty(cur_place):  # satisfy 1
-                    self.check_if_kill_other(cur_place)
-                    move_list.append(cur_place)
-                    self.next_board.append(self.test_board)
-                else:
-                    if self.check_if_kill_other(cur_place) and not self.check_violate_KO():  # satisfy 2
+                if self.cur_board[i][j] == EMPTY:  # can place
+                    self.test_board = deepcopy(self.cur_board)
+                    self.test_board[i][j] = self.my_player  # place new stone
+                    cur_place = (i, j)
+                    if self.check_if_has_liberty(cur_place):  # satisfy 1
+                        self.check_if_kill_other(cur_place)
                         move_list.append(cur_place)
                         self.next_board.append(self.test_board)
-                self.test_board = []
+                    else:
+                        if self.check_if_kill_other(cur_place) and not self.check_violate_KO():  # satisfy 2
+                            move_list.append(cur_place)
+                            self.next_board.append(self.test_board)
+                    self.test_board = []
 
         board_move_list_dict[board_str] = move_list
         board_next_board_dict[board_str] = self.next_board
@@ -389,7 +392,7 @@ class QLearner:
         """
         board = local_go.cur_board
         board_str = board_string(board)
-        if board_str not in self.q_values[local_go.my_player]:
+        if board_str == '0000001000000000000000000' or board_str not in self.q_values[local_go.my_player]:
             # init Q
             q_val = np.zeros((BOARD_SIZE, BOARD_SIZE))
 
@@ -429,7 +432,7 @@ class QLearner:
                 liberty = 0
                 for ally in neighbor_ally_list:
                     liberty += local_go.get_liberty(ally)
-                q_val[move[0]][move[1]] += liberty / 20
+
 
                 # with the same deviations, less of the other's liberty is better.
                 # better connection give higher score
@@ -446,12 +449,14 @@ class QLearner:
                     #     fill_self_punishment = -10
                 if local_go.my_player == BLACK:
                     # q_val[move[0]][move[1]] -= white_liberty_sum / 50
+                    q_val[move[0]][move[1]] += liberty / 20
                     q_val[move[0]][move[1]] += move_connection
                     q_val[move[0]][move[1]] += fill_self_punishment
 
-                    q_val[move[0]][move[1]] += kill_reward * 0.1  # try to kill to win KOMI
+                    # q_val[move[0]][move[1]] += kill_reward * 0.1  # try to kill to win KOMI
                 else:
                     # q_val[move[0]][move[1]] += black_liberty_sum / 50
+                    q_val[move[0]][move[1]] -= liberty / 20
                     q_val[move[0]][move[1]] -= move_connection
                     q_val[move[0]][move[1]] -= fill_self_punishment
 
@@ -545,14 +550,23 @@ class QLearner:
         """
         go_test = Go(1, last_board, cur_board)
         move_list = go_test.move_list
+
         if len(move_list) == 0:
             return "PASS", self.board_value(cur_board)
-        if len(move_list) + step * 4 > MIN_MAX_WIDTH or step > MIN_MAX_DEPTH + int(BOARD_SIZE - len(move_list) ** 0.5):
+        if len(move_list) * step > MIN_MAX_WIDTH or step > MIN_MAX_DEPTH + int(BOARD_SIZE - len(move_list) ** 0.5):
             move, Q = self.find_max_by_Q(move_list, self.Q(go_test))
             return move, Q + self.board_value(cur_board)
+
+        q_board = self.Q(go_test)
+        order = np.argsort(-q_board.reshape(25))
+        ordered_move_list = [(int(x/BOARD_SIZE), x%BOARD_SIZE) for x in order]
+
         v = -np.inf
         max_action = ()
-        for i in range(len(move_list)):
+        for move in ordered_move_list:
+            if move not in move_list:
+                continue
+            i = move_list.index(move)
             action = move_list[i]
             next_board = go_test.next_board[i]
             min_action, min_value = self.min_value(cur_board, next_board, alpha, beta, step + 1)
@@ -573,14 +587,23 @@ class QLearner:
         """
         go_test = Go(2, last_board, cur_board)
         move_list = go_test.move_list
+
         if len(move_list) == 0:
             return "PASS", self.board_value(cur_board)
-        if len(move_list) + step * 4 > MIN_MAX_WIDTH or step > MIN_MAX_DEPTH + int(BOARD_SIZE - len(move_list) ** 0.5):
+        if len(move_list) * step > MIN_MAX_WIDTH or step > MIN_MAX_DEPTH + int(BOARD_SIZE - len(move_list) ** 0.5):
             move, Q = self.find_min_by_Q(move_list, self.Q(go_test))
             return move, Q + self.board_value(cur_board)
+
+        q_board = self.Q(go_test)
+        order = np.argsort(q_board.reshape(25))
+        ordered_move_list = [(int(x / BOARD_SIZE), x % BOARD_SIZE) for x in order]
+
         v = np.inf
         min_action = ()
-        for i in range(len(move_list)):
+        for move in ordered_move_list:
+            if move not in move_list:
+                continue
+            i = move_list.index(move)
             action = move_list[i]
             next_board = go_test.next_board[i]
             max_action, max_value = self.max_value(cur_board, next_board, alpha, beta, step + 1)

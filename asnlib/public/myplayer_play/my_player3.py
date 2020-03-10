@@ -14,8 +14,8 @@ OUTPUT = "output.txt"
 EMPTY = 0
 BLACK = 1
 WHITE = 2
-MIN_MAX_DEPTH = 2
-MIN_MAX_WIDTH = 28
+MIN_MAX_DEPTH = 1
+MIN_MAX_WIDTH = 50
 
 
 def deepcopy(board):
@@ -49,6 +49,7 @@ magic_order = [(2, 2), (1, 2), (3, 2), (2, 3), (2, 1),
                (2, 0), (4, 2), (0, 2), (3, 0), (1, 4),
                (0, 1), (4, 3), (1, 0), (3, 4), (4, 1),
                (0, 3), (0, 0), (4, 4), (0, 4), (4, 0)]
+# not good at all, at least for learning, always show same board
 
 
 class Go:
@@ -71,11 +72,11 @@ class Go:
         self.move_list = self.get_all_possible_move()
 
         # avoid always same search order
-        # randnum = random.randint(0, 100)
-        # random.seed(randnum)
-        # random.shuffle(self.move_list)
-        # random.seed(randnum)
-        # random.shuffle(self.next_board)
+        randnum = random.randint(0, 100)
+        random.seed(randnum)
+        random.shuffle(self.move_list)
+        random.seed(randnum)
+        random.shuffle(self.next_board)
 
     def get_all_possible_move(self):
         """
@@ -90,21 +91,23 @@ class Go:
             return board_move_list_dict[board_str]
 
         move_list = []
-        for i, j in magic_order:
+        # for i, j in magic_order:
+        for i in range(BOARD_SIZE):
+            for j in range(BOARD_SIZE):
             # for all positions
-            if self.cur_board[i][j] == EMPTY:  # can place
-                self.test_board = deepcopy(self.cur_board)
-                self.test_board[i][j] = self.my_player  # place new stone
-                cur_place = (i, j)
-                if self.check_if_has_liberty(cur_place):  # satisfy 1
-                    self.check_if_kill_other(cur_place)
-                    move_list.append(cur_place)
-                    self.next_board.append(self.test_board)
-                else:
-                    if self.check_if_kill_other(cur_place) and not self.check_violate_KO():  # satisfy 2
+                if self.cur_board[i][j] == EMPTY:  # can place
+                    self.test_board = deepcopy(self.cur_board)
+                    self.test_board[i][j] = self.my_player  # place new stone
+                    cur_place = (i, j)
+                    if self.check_if_has_liberty(cur_place):  # satisfy 1
+                        self.check_if_kill_other(cur_place)
                         move_list.append(cur_place)
                         self.next_board.append(self.test_board)
-                self.test_board = []
+                    else:
+                        if self.check_if_kill_other(cur_place) and not self.check_violate_KO():  # satisfy 2
+                            move_list.append(cur_place)
+                            self.next_board.append(self.test_board)
+                    self.test_board = []
 
         board_move_list_dict[board_str] = move_list
         board_next_board_dict[board_str] = self.next_board
