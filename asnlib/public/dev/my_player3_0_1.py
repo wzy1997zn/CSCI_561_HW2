@@ -392,7 +392,7 @@ class QLearner:
         """
         board = local_go.cur_board
         board_str = board_string(board)
-        if board_str == '0000001000000000000000000' or board_str not in self.q_values[local_go.my_player]:
+        if board_str not in self.q_values[local_go.my_player]:
             # init Q
             q_val = np.zeros((BOARD_SIZE, BOARD_SIZE))
 
