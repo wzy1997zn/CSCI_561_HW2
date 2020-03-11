@@ -1,4 +1,5 @@
 # 6853115445: Ziyue Wang
+# pure_qlearner
 import random
 # from copy import deepcopy
 import os
@@ -17,13 +18,17 @@ WHITE = 2
 MIN_MAX_DEPTH = 2
 MIN_MAX_WIDTH = 26
 
+path = os.path.split(os.path.realpath(__file__))[0]
+
+def realfile(side):
+    return path + "\\QvalueDB_" + str(side) + ".txt"
 
 def deepcopy(board):
     return np.asarray(board).tolist()
 
 
-board_move_list_dict = {}  # speedup
-board_next_board_dict = {}
+# board_move_list_dict = {}  # speedup
+# board_next_board_dict = {}
 
 
 def flatten_board(board):
@@ -78,6 +83,9 @@ class Go:
         random.seed(randnum)
         random.shuffle(self.next_board)
 
+    def init(self, my_player, last_board, cur_board):
+        self.__init__(my_player, last_board, cur_board)
+
     def get_all_possible_move(self):
         """
         check all 0s and find all
@@ -86,9 +94,9 @@ class Go:
         :return: a list of possible moves on the board
         """
         board_str = board_string(self.cur_board)
-        if board_str in board_move_list_dict:
-            self.next_board = board_next_board_dict[board_str]
-            return board_move_list_dict[board_str]
+        # if board_str in board_move_list_dict:
+        #     self.next_board = board_next_board_dict[board_str]
+        #     return board_move_list_dict[board_str]
 
         move_list = []
         # for i, j in magic_order:
@@ -109,8 +117,8 @@ class Go:
                             self.next_board.append(self.test_board)
                     self.test_board = []
 
-        board_move_list_dict[board_str] = move_list
-        board_next_board_dict[board_str] = self.next_board
+        # board_move_list_dict[board_str] = move_list
+        # board_next_board_dict[board_str] = self.next_board
         return move_list
 
     def check_if_has_liberty(self, place=(-1, -1)):
@@ -350,7 +358,7 @@ class QLearner:
         :return: none
         """
         q_values = {}
-        file_name = "QvalueDB_" + str(side) + ".txt"
+        file_name = realfile(side)
         if not os.path.exists(file_name):
             with open(file_name, 'w') as f:
                 return q_values
@@ -473,30 +481,30 @@ class QLearner:
         Black move strategy
         :return: (x,y)
         """
-        # no direct q strategy at all
-        return self.find_max_by_alpha_beta()
-        # move_list = self.go.move_list
+        # only find action by q value
+        # return self.find_max_by_alpha_beta()
+        move_list = self.go.move_list
         # # shuffle(move_list)
         # if len(move_list) <= MIN_MAX_WIDTH:
         #     return self.find_max_by_alpha_beta()
         # else:
-        #     cur_board_Q = self.Q(self.go)
-        #     return self.find_max_by_Q(move_list, cur_board_Q)
+        cur_board_Q = self.Q(self.go)
+        return self.find_max_by_Q(move_list, cur_board_Q)
 
     def find_min_action(self):
         """
         White move strategy
         :return: (x,y)
         """
-        # no direct q strategy at all
-        return self.find_min_by_alpha_beta()
-        # move_list = self.go.move_list
+        # only find action by q value
+        # return self.find_min_by_alpha_beta()
+        move_list = self.go.move_list
         #
         # if len(move_list) <= MIN_MAX_WIDTH:
         #     return self.find_min_by_alpha_beta()
         # else:
-        #     cur_board_Q = self.Q(self.go)
-        #     return self.find_min_by_Q(move_list, cur_board_Q)
+        cur_board_Q = self.Q(self.go)
+        return self.find_min_by_Q(move_list, cur_board_Q)
 
     def find_max_by_Q(self, move_list, cur_board_Q):
         """
@@ -690,7 +698,7 @@ class QLearner:
         for kv in update_qvalues.items():
             self.q_values[self.side][kv[0]] = kv[1]
 
-        file_name = "QvalueDB_" + str(self.side) + ".txt"
+        file_name = realfile(self.side)
         with open(file_name, 'w') as f:
             for kv in self.q_values[self.side].items():
                 if np.where(kv[1] != 0)[0].shape[0] != 0:

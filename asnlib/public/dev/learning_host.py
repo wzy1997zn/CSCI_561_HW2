@@ -4,15 +4,19 @@ import my_player3_0_1
 import host
 
 import time
+from qlearns.divide_2.my_player3_0_2 import QLearner as q2
 
-
-def learn_loop():
+def learn_loop(i):
     my_player_ = 1
     last_board_ = [[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0]]
     cur_board_ = [[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0]]
 
     black_player = my_player3_0_1.QLearner()
     white_player = my_player3_0_1.QLearner()
+    if i % 3 == 1:
+        black_player = q2()
+    elif i % 3 == 2:
+        white_player = q2()
 
     host_GO = host.GO(5)
 
@@ -72,9 +76,13 @@ def learn_loop():
         host_GO.visualize_board()
         print(time_w)
 
-    black_player.learn(black_state_action_list)
-    white_player.learn(white_state_action_list)
-
+    if i % 3 == 0:
+        black_player.learn(black_state_action_list)
+        white_player.learn(white_state_action_list)
+    elif i % 3 == 1:
+        white_player.learn(white_state_action_list)
+    else:
+        black_player.learn(black_state_action_list)
     # with open("Black_action.txt", 'a') as f:
     #     for kv in black_move:
     #         string = ''.join(str(x) for x in black_player.flatten_board(kv[0])) + '|' + str(kv[1][0]) + ',' + str(kv[1][1]) + "\n"
@@ -223,23 +231,23 @@ def white_random_learn():
     # black_player.learn(black_state_action_list)
     white_player.learn(white_state_action_list)
 
+for j in range(10):
+    # for i in range(10):
+    #     black_random_learn()
+    #     # white_random_learn()
+    #     # learn_loop()
+    #     print(i)
+    #
+    # for i in range(10):
+    #     # black_random_learn()
+    #     white_random_learn()
+    #     # learn_loop()
+    #     print(i)
 
-# for i in range(1000):
-#     black_random_learn()
-#     # white_random_learn()
-#     # learn_loop()
-#     print(i)
-#
-# for i in range(1000):
-#     # black_random_learn()
-#     white_random_learn()
-#     # learn_loop()
-#     print(i)
-
-for i in range(10):
-    # black_random_learn()
-    # white_random_learn()
-    learn_loop()
-    print(i)
+    for i in range(100):
+        # black_random_learn()
+        # white_random_learn()
+        learn_loop(i)
+        print(i)
 
 
