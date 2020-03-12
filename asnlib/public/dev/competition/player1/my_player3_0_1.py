@@ -1,6 +1,6 @@
 # 6853115445: Ziyue Wang
-# mix_learner1
-# shallow minmax
+# mix_learner2
+# deep minmax
 import random
 # from copy import deepcopy
 import os
@@ -21,8 +21,10 @@ MIN_MAX_WIDTH = 29
 
 path = os.path.split(os.path.realpath(__file__))[0]
 
+
 def realfile(side):
     return path + "\\QvalueDB_" + str(side) + ".txt"
+
 
 def deepcopy(board):
     return np.asarray(board).tolist()
@@ -55,6 +57,8 @@ magic_order = [(2, 2), (1, 2), (3, 2), (2, 3), (2, 1),
                (2, 0), (4, 2), (0, 2), (3, 0), (1, 4),
                (0, 1), (4, 3), (1, 0), (3, 4), (4, 1),
                (0, 3), (0, 0), (4, 4), (0, 4), (4, 0)]
+
+
 # not good at all, at least for learning, always show same board
 
 
@@ -103,7 +107,7 @@ class Go:
         # for i, j in magic_order:
         for i in range(BOARD_SIZE):
             for j in range(BOARD_SIZE):
-            # for all positions
+                # for all positions
                 if self.cur_board[i][j] == EMPTY:  # can place
                     self.test_board = deepcopy(self.cur_board)
                     self.test_board[i][j] = self.my_player  # place new stone
@@ -447,7 +451,6 @@ class QLearner:
                 for ally in neighbor_ally_list:
                     liberty += local_go.get_liberty(ally)
 
-
                 # with the same deviations, less of the other's liberty is better.
                 # better connection give higher score
                 move_neighbor = math.ceil(len(local_go.get_neighbor_ally(move)) / 4) / 10
@@ -456,20 +459,30 @@ class QLearner:
                 move_connection = move_neighbor + move_corner + move_jump
 
                 fill_self_punishment = 0
-                if len(local_go.get_neighbor(move)) == len(local_go.get_neighbor_ally(move)):
-                    fill_self_punishment = -0.9
-                    # avoid suicide?
-                    # if liberty == 1:
-                    #     fill_self_punishment = -10
+                # if len(local_go.get_neighbor(move)) == len(local_go.get_neighbor_ally(move)):
+                #     fill_self_punishment = -0.9
+                #     # avoid suicide?
+                #     if liberty == 1:
+                #         fill_self_punishment = -100
                 if local_go.my_player == BLACK:
                     # q_val[move[0]][move[1]] -= white_liberty_sum / 50
+                    if len(local_go.get_neighbor(move)) == len(local_go.get_neighbor_ally(move)):
+                        fill_self_punishment = -0.9
+                        # avoid suicide?
+                        if black_liberty_sum == 1:
+                            fill_self_punishment = -100
                     q_val[move[0]][move[1]] += liberty / 20
                     q_val[move[0]][move[1]] += move_connection
                     q_val[move[0]][move[1]] += fill_self_punishment
 
-                    # q_val[move[0]][move[1]] += kill_reward * 0.1  # try to kill to win KOMI
+                    q_val[move[0]][move[1]] += kill_reward * 0.1  # try to kill to win KOMI
                 else:
                     # q_val[move[0]][move[1]] += black_liberty_sum / 50
+                    if len(local_go.get_neighbor(move)) == len(local_go.get_neighbor_ally(move)):
+                        fill_self_punishment = -0.9
+                        # avoid suicide?
+                        if white_liberty_sum == 1:
+                            fill_self_punishment = -100
                     q_val[move[0]][move[1]] -= liberty / 20
                     q_val[move[0]][move[1]] -= move_connection
                     q_val[move[0]][move[1]] -= fill_self_punishment
@@ -569,15 +582,23 @@ class QLearner:
         go_test = Go(1, last_board, cur_board)
         move_list = go_test.move_list
 
-        if len(move_list) == 0:
-            return "PASS", self.board_value(cur_board)
         if 4 * step > self.min_max_width or step > self.min_max_depth:
             move, Q = self.find_max_by_Q(move_list, self.Q(go_test))
             return move, Q + self.board_value(cur_board)
 
         q_board = self.Q(go_test)
         order = np.argsort(-q_board.reshape(25))
-        ordered_move_list = [(int(x/BOARD_SIZE), x%BOARD_SIZE) for x in order]
+        ordered_move_list = [(int(x / BOARD_SIZE), x % BOARD_SIZE) for x in order]
+
+        non_suicide_move_list = []
+        for move in move_list:
+            if q_board[move[0]][move[1]] > -50:
+                non_suicide_move_list.append(move)
+
+        move_list = non_suicide_move_list
+
+        if len(move_list) == 0:
+            return "PASS", self.board_value(cur_board)
 
         v = -np.inf
         max_action = ()
@@ -606,8 +627,6 @@ class QLearner:
         go_test = Go(2, last_board, cur_board)
         move_list = go_test.move_list
 
-        if len(move_list) == 0:
-            return "PASS", self.board_value(cur_board)
         if 4 * step > self.min_max_width or step > self.min_max_depth:
             move, Q = self.find_min_by_Q(move_list, self.Q(go_test))
             return move, Q + self.board_value(cur_board)
@@ -615,6 +634,16 @@ class QLearner:
         q_board = self.Q(go_test)
         order = np.argsort(q_board.reshape(25))
         ordered_move_list = [(int(x / BOARD_SIZE), x % BOARD_SIZE) for x in order]
+
+        non_suicide_move_list = []
+        for move in move_list:
+            if q_board[move[0]][move[1]] < 50:
+                non_suicide_move_list.append(move)
+
+        move_list = non_suicide_move_list
+
+        if len(move_list) == 0:
+            return "PASS", self.board_value(cur_board)
 
         v = np.inf
         min_action = ()
@@ -660,15 +689,15 @@ class QLearner:
         """
         if self.side == BLACK:
             max_action, max_next_Q = self.find_max_action()
-            # if max_next_Q < 2 * self.KOMI:
-            #     # self.visual()
-            #     return "PASS"
+            if max_next_Q < -20:
+                # self.visual()
+                return "PASS"
             return max_action
         else:
             min_action, min_next_Q = self.find_min_action()
-            # if min_next_Q > -2 * self.KOMI:
-            #     # self.visual()
-            #     return "PASS"
+            if min_next_Q > 20:
+                # self.visual()
+                return "PASS"
             return min_action
 
     def learn(self, state_action_list):
@@ -739,26 +768,26 @@ def write(result):
 
 
 if __name__ == '__main__':
-    # my_player_, last_board_, cur_board_ = read()
-    #
-    # go = Go(my_player_, last_board_, cur_board_)
-    # result = get_result(go)
-    # write(result)
-    my_player_ = 1
-    last_board_ = [
-        [0, 0, 0, 0, 0],
-        [0, 1, 0, 1, 0],
-        [0, 0, 1, 1, 0],
-        [0, 2, 2, 0, 0],
-        [2, 0, 2, 0, 0]
-    ]
-    cur_board_ = [
-        [0, 0, 0, 0, 0],
-        [0, 1, 0, 1, 0],
-        [0, 0, 1, 1, 0],
-        [2, 2, 2, 0, 0],
-        [2, 0, 2, 0, 0]
-    ]
+    my_player_, last_board_, cur_board_ = read()
+
     go = Go(my_player_, last_board_, cur_board_)
     result = get_result(go)
     write(result)
+    # my_player_ = 1
+    # last_board_ = [
+    #     [1, 1, 1, 0, 1],
+    #     [1, 1, 1, 1, 0],
+    #     [2, 2, 1, 1, 1],
+    #     [0, 2, 2, 1, 1],
+    #     [2, 0, 2, 0, 1]
+    # ]
+    # cur_board_ = [
+    #     [1, 1, 1, 0, 1],
+    #     [1, 1, 1, 1, 0],
+    #     [2, 2, 1, 1, 1],
+    #     [0, 2, 2, 1, 1],
+    #     [2, 0, 2, 2, 1]
+    # ]
+    # go = Go(my_player_, last_board_, cur_board_)
+    # result = get_result(go)
+    # write(result)

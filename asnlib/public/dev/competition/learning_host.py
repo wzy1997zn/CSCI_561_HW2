@@ -6,14 +6,15 @@ from competition.player1.my_player3_0_1 import QLearner as p1
 from competition.player2.my_player3_0_1 import QLearner as p2
 from competition.player3.my_player3_0_1 import QLearner as p3
 from competition.player4.my_player3_0_1 import QLearner as p4
+from competition.Random.RandomPlayer import RandomPlayer as p5
 from competition.player1.my_player3_0_1 import Go as GO
 import host
 
 import time
 from qlearns.divide_2.my_player3_0_2 import QLearner as q2
 
-black_player_pool = [p1,p2,p3,p4]
-white_player_pool = [p1,p2,p3,p4]
+black_player_pool = [p1,p2,p3,p4,p5]
+white_player_pool = [p1,p2,p3,p4,p5]
 player_count = len(black_player_pool)
 
 def get_player(i):
@@ -116,7 +117,6 @@ def learn_loop(x, round, home_court, win_black, win_white, lock):
 
     lock.acquire()
     winner = host_GO.judge_winner()
-    winner = 2
     if winner == 1:
         # with lock:
         win_black[b_num] += 1
@@ -129,19 +129,15 @@ def learn_loop(x, round, home_court, win_black, win_white, lock):
     white_player.learn(white_state_action_list)
 
 
-if __name__ == "__main__":
-    manager = Manager()
-    winblack = manager.list([0] * player_count)
-    winwhite = manager.list([0] * player_count)
-    lock = manager.Lock()
-
-    for season in range(1):
+def tournament():
+    # player_count = 2
+    for season in range(10):
         print("season" + str(season))
         # learn_loop(0,0,True)
-        for round in range(player_count-1):
+        for round in range(player_count):
             # black_random_learn()
             # white_random_learn()
-            pool = Pool(processes=player_count * 2)
+            pool = Pool(processes=8)
             for x in range(player_count):
                 pool.apply_async(learn_loop, args=(x, round, True, winblack, winwhite, lock))
                 pool.apply_async(learn_loop, args=(x, round, False, winblack, winwhite, lock))
@@ -152,6 +148,24 @@ if __name__ == "__main__":
             f.write(str(winwhite) + "\n")
     print(winblack)
     print(winwhite)
+
+
+def test():
+    learn_loop(2, 1, True, winblack, winwhite, lock)
+    print(winblack)
+    print(winwhite)
+
+
+if __name__ == "__main__":
+    manager = Manager()
+    winblack = manager.list([0] * player_count)
+    winwhite = manager.list([0] * player_count)
+    lock = manager.Lock()
+
+    tournament()
+    # test()
+
+
 
 
 

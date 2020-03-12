@@ -456,20 +456,30 @@ class QLearner:
                 move_connection = move_neighbor + move_corner + move_jump
 
                 fill_self_punishment = 0
-                if len(local_go.get_neighbor(move)) == len(local_go.get_neighbor_ally(move)):
-                    fill_self_punishment = -0.9
-                    # avoid suicide?
-                    # if liberty == 1:
-                    #     fill_self_punishment = -10
+                # if len(local_go.get_neighbor(move)) == len(local_go.get_neighbor_ally(move)):
+                #     fill_self_punishment = -0.9
+                #     # avoid suicide?
+                #     if liberty == 1:
+                #         fill_self_punishment = -100
                 if local_go.my_player == BLACK:
                     # q_val[move[0]][move[1]] -= white_liberty_sum / 50
+                    if len(local_go.get_neighbor(move)) == len(local_go.get_neighbor_ally(move)):
+                        fill_self_punishment = -0.9
+                        # avoid suicide?
+                        if black_liberty_sum == 1:
+                            fill_self_punishment = -100
                     q_val[move[0]][move[1]] += liberty / 20
                     q_val[move[0]][move[1]] += move_connection
                     q_val[move[0]][move[1]] += fill_self_punishment
 
-                    # q_val[move[0]][move[1]] += kill_reward * 0.1  # try to kill to win KOMI
+                    q_val[move[0]][move[1]] += kill_reward * 0.1  # try to kill to win KOMI
                 else:
                     # q_val[move[0]][move[1]] += black_liberty_sum / 50
+                    if len(local_go.get_neighbor(move)) == len(local_go.get_neighbor_ally(move)):
+                        fill_self_punishment = -0.9
+                        # avoid suicide?
+                        if white_liberty_sum == 1:
+                            fill_self_punishment = -100
                     q_val[move[0]][move[1]] -= liberty / 20
                     q_val[move[0]][move[1]] -= move_connection
                     q_val[move[0]][move[1]] -= fill_self_punishment
@@ -579,6 +589,16 @@ class QLearner:
         order = np.argsort(-q_board.reshape(25))
         ordered_move_list = [(int(x/BOARD_SIZE), x%BOARD_SIZE) for x in order]
 
+        non_suicide_move_list = []
+        for move in move_list:
+            if q_board[move[0]][move[1]] > -50:
+                non_suicide_move_list.append(move)
+
+        move_list = non_suicide_move_list
+
+        if len(move_list) == 0:
+            return "PASS", self.board_value(cur_board)
+
         v = -np.inf
         max_action = ()
         for move in ordered_move_list:
@@ -615,6 +635,16 @@ class QLearner:
         q_board = self.Q(go_test)
         order = np.argsort(q_board.reshape(25))
         ordered_move_list = [(int(x / BOARD_SIZE), x % BOARD_SIZE) for x in order]
+
+        non_suicide_move_list = []
+        for move in move_list:
+            if q_board[move[0]][move[1]] < 50:
+                non_suicide_move_list.append(move)
+
+        move_list = non_suicide_move_list
+
+        if len(move_list) == 0:
+            return "PASS", self.board_value(cur_board)
 
         v = np.inf
         min_action = ()
@@ -660,15 +690,15 @@ class QLearner:
         """
         if self.side == BLACK:
             max_action, max_next_Q = self.find_max_action()
-            # if max_next_Q < 2 * self.KOMI:
-            #     # self.visual()
-            #     return "PASS"
+            if max_next_Q < -20:
+                # self.visual()
+                return "PASS"
             return max_action
         else:
             min_action, min_next_Q = self.find_min_action()
-            # if min_next_Q > -2 * self.KOMI:
-            #     # self.visual()
-            #     return "PASS"
+            if min_next_Q > 20:
+                # self.visual()
+                return "PASS"
             return min_action
 
     def learn(self, state_action_list):
@@ -746,18 +776,18 @@ if __name__ == '__main__':
     # write(result)
     my_player_ = 1
     last_board_ = [
-        [0, 0, 0, 0, 0],
-        [0, 1, 0, 1, 0],
-        [0, 0, 1, 1, 0],
-        [0, 2, 2, 0, 0],
-        [2, 0, 2, 0, 0]
+        [1, 1, 1, 0, 1],
+        [1, 1, 1, 1, 0],
+        [2, 2, 1, 1, 1],
+        [0, 2, 2, 1, 1],
+        [2, 0, 2, 0, 1]
     ]
     cur_board_ = [
-        [0, 0, 0, 0, 0],
-        [0, 1, 0, 1, 0],
-        [0, 0, 1, 1, 0],
-        [2, 2, 2, 0, 0],
-        [2, 0, 2, 0, 0]
+        [1, 1, 1, 0, 1],
+        [1, 1, 1, 1, 0],
+        [2, 2, 1, 1, 1],
+        [0, 2, 2, 1, 1],
+        [2, 0, 2, 2, 1]
     ]
     go = Go(my_player_, last_board_, cur_board_)
     result = get_result(go)
