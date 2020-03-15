@@ -409,79 +409,79 @@ class QLearner:
             # init Q
             q_val = np.zeros((BOARD_SIZE, BOARD_SIZE))
 
-            for i_move in range(len(local_go.move_list)):
-                black_liberty_sum = 0
-                white_liberty_sum = 0
-                black_sum = 0
-                white_sum = 0
-                move = local_go.move_list[i_move]
-                local_go.test_board = local_go.next_board[i_move]
-                for i in range(BOARD_SIZE):
-                    for j in range(BOARD_SIZE):
-                        # self.go.test_board = deepcopy(self.go.cur_board)
-                        # if self.go.test_board[i][j] == BLACK:
-                        #     black_liberty_sum += 1
-                        # if self.go.test_board[i][j] == WHITE:
-                        #     white_liberty_sum += 1
-                        is_black_liberty = False
-                        is_white_liberty = False
-                        if local_go.test_board[i][j] == EMPTY:
-                            for place in local_go.get_neighbor((i, j)):
-                                neighbor = local_go.test_board[place[0]][place[1]]
-                                if neighbor == BLACK:
-                                    is_black_liberty = True
-                                if neighbor == WHITE:
-                                    is_white_liberty = True
-                        if is_black_liberty:
-                            black_liberty_sum += 1
-                        if is_white_liberty:
-                            white_liberty_sum += 1
-
-                q_val[move[0]][move[1]] = (self.init_value + (black_liberty_sum - white_liberty_sum) / 40)
-                kill_reward = self.board_value(local_go.test_board) - self.board_value(board)
-                q_val[move[0]][move[1]] += kill_reward / 2
-
-                neighbor_ally_list = local_go.get_all_neighbor_ally(move)
-                liberty = 0
-                for ally in neighbor_ally_list:
-                    liberty += local_go.get_liberty(ally)
-
-
-                # with the same deviations, less of the other's liberty is better.
-                # better connection give higher score
-                move_neighbor = math.ceil(len(local_go.get_neighbor_ally(move)) / 4) / 10
-                move_corner = math.ceil(len(local_go.get_corner_ally(move)) / 4) / 18
-                move_jump = math.ceil(len(local_go.get_jump_ally(move)) / 4) / 30
-                move_connection = move_neighbor + move_corner + move_jump
-
-                fill_self_punishment = 0
-                # if len(local_go.get_neighbor(move)) == len(local_go.get_neighbor_ally(move)):
-                #     fill_self_punishment = -0.9
-                    # avoid suicide?
-                    # if liberty == 1:
-                    #     fill_self_punishment = -10
-                if local_go.my_player == BLACK:
-                    # q_val[move[0]][move[1]] -= white_liberty_sum / 50
-                    if len(local_go.get_neighbor(move)) == len(local_go.get_neighbor_ally(move)):
-                        fill_self_punishment = -0.9
-                        # avoid suicide?
-                        if black_liberty_sum == 1:
-                            fill_self_punishment = -100
-                    q_val[move[0]][move[1]] += liberty / 20
-                    q_val[move[0]][move[1]] += move_connection
-                    q_val[move[0]][move[1]] += fill_self_punishment
-
-                    # q_val[move[0]][move[1]] += kill_reward * 0.1  # try to kill to win KOMI
-                else:
-                    # q_val[move[0]][move[1]] += black_liberty_sum / 50
-                    if len(local_go.get_neighbor(move)) == len(local_go.get_neighbor_ally(move)):
-                        fill_self_punishment = -0.9
-                        # avoid suicide?
-                        if white_liberty_sum == 1:
-                            fill_self_punishment = -100
-                    q_val[move[0]][move[1]] -= liberty / 20
-                    q_val[move[0]][move[1]] -= move_connection
-                    q_val[move[0]][move[1]] -= fill_self_punishment
+            # for i_move in range(len(local_go.move_list)):
+            #     black_liberty_sum = 0
+            #     white_liberty_sum = 0
+            #     black_sum = 0
+            #     white_sum = 0
+            #     move = local_go.move_list[i_move]
+            #     local_go.test_board = local_go.next_board[i_move]
+            #     for i in range(BOARD_SIZE):
+            #         for j in range(BOARD_SIZE):
+            #             # self.go.test_board = deepcopy(self.go.cur_board)
+            #             # if self.go.test_board[i][j] == BLACK:
+            #             #     black_liberty_sum += 1
+            #             # if self.go.test_board[i][j] == WHITE:
+            #             #     white_liberty_sum += 1
+            #             is_black_liberty = False
+            #             is_white_liberty = False
+            #             if local_go.test_board[i][j] == EMPTY:
+            #                 for place in local_go.get_neighbor((i, j)):
+            #                     neighbor = local_go.test_board[place[0]][place[1]]
+            #                     if neighbor == BLACK:
+            #                         is_black_liberty = True
+            #                     if neighbor == WHITE:
+            #                         is_white_liberty = True
+            #             if is_black_liberty:
+            #                 black_liberty_sum += 1
+            #             if is_white_liberty:
+            #                 white_liberty_sum += 1
+            #
+            #     q_val[move[0]][move[1]] = (self.init_value + (black_liberty_sum - white_liberty_sum) / 40)
+            #     kill_reward = self.board_value(local_go.test_board) - self.board_value(board)
+            #     q_val[move[0]][move[1]] += kill_reward / 2
+            #
+            #     neighbor_ally_list = local_go.get_all_neighbor_ally(move)
+            #     liberty = 0
+            #     for ally in neighbor_ally_list:
+            #         liberty += local_go.get_liberty(ally)
+            #
+            #
+            #     # with the same deviations, less of the other's liberty is better.
+            #     # better connection give higher score
+            #     move_neighbor = math.ceil(len(local_go.get_neighbor_ally(move)) / 4) / 10
+            #     move_corner = math.ceil(len(local_go.get_corner_ally(move)) / 4) / 18
+            #     move_jump = math.ceil(len(local_go.get_jump_ally(move)) / 4) / 30
+            #     move_connection = move_neighbor + move_corner + move_jump
+            #
+            #     fill_self_punishment = 0
+            #     # if len(local_go.get_neighbor(move)) == len(local_go.get_neighbor_ally(move)):
+            #     #     fill_self_punishment = -0.9
+            #         # avoid suicide?
+            #         # if liberty == 1:
+            #         #     fill_self_punishment = -10
+            #     if local_go.my_player == BLACK:
+            #         # q_val[move[0]][move[1]] -= white_liberty_sum / 50
+            #         if len(local_go.get_neighbor(move)) == len(local_go.get_neighbor_ally(move)):
+            #             fill_self_punishment = -0.9
+            #             # avoid suicide?
+            #             if black_liberty_sum == 1:
+            #                 fill_self_punishment = -100
+            #         q_val[move[0]][move[1]] += liberty / 20
+            #         q_val[move[0]][move[1]] += move_connection
+            #         q_val[move[0]][move[1]] += fill_self_punishment
+            #
+            #         # q_val[move[0]][move[1]] += kill_reward * 0.1  # try to kill to win KOMI
+            #     else:
+            #         # q_val[move[0]][move[1]] += black_liberty_sum / 50
+            #         if len(local_go.get_neighbor(move)) == len(local_go.get_neighbor_ally(move)):
+            #             fill_self_punishment = -0.9
+            #             # avoid suicide?
+            #             if white_liberty_sum == 1:
+            #                 fill_self_punishment = -100
+            #         q_val[move[0]][move[1]] -= liberty / 20
+            #         q_val[move[0]][move[1]] -= move_connection
+            #         q_val[move[0]][move[1]] -= fill_self_punishment
 
             self.q_values[local_go.my_player][board_str] = q_val
         return self.q_values[local_go.my_player][board_str]
