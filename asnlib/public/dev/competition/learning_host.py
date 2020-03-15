@@ -6,22 +6,18 @@ from competition.player1.my_player3_0_1 import QLearner as p1
 from competition.player2.my_player3_0_1 import QLearner as p2
 from competition.player3.my_player3_0_1 import QLearner as p3
 from competition.player4.my_player3_0_1 import QLearner as p4
-from competition.Random.RandomPlayer import RandomPlayer as p5
+from competition.player5.my_player3_0_1 import QLearner as p5
 from competition.player1.my_player3_0_1 import Go as GO
 import host
 
 import time
-from qlearns.divide_2.my_player3_0_2 import QLearner as q2
+
 
 black_player_pool = [p1,p2,p3,p4,p5]
 white_player_pool = [p1,p2,p3,p4,p5]
 player_count = len(black_player_pool)
 
-def get_player(i):
-    if i == 1:
-        return p1()
-    elif i == 2:
-        return q2()
+
 
 
 def learn_loop(x, round, home_court, win_black, win_white, lock):
