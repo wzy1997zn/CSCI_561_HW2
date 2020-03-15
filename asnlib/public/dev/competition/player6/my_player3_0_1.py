@@ -1,5 +1,6 @@
 # 6853115445: Ziyue Wang
-# random_qlearner
+# mix_learner_3
+# qlearn_first
 import random
 # from copy import deepcopy
 import os
@@ -16,12 +17,14 @@ EMPTY = 0
 BLACK = 1
 WHITE = 2
 MIN_MAX_DEPTH = 2
-MIN_MAX_WIDTH = 26
+MIN_MAX_WIDTH = 9
 
 path = os.path.split(os.path.realpath(__file__))[0]
 
+
 def realfile(side):
     return path + "\\QvalueDB_" + str(side) + ".txt"
+
 
 def deepcopy(board):
     return np.asarray(board).tolist()
@@ -47,15 +50,6 @@ def board_string(board):
     :return: ''
     """
     return ''.join(str(x) for x in flatten_board(board))
-
-
-magic_order = [(2, 2), (1, 2), (3, 2), (2, 3), (2, 1),
-               (3, 3), (1, 1), (1, 3), (3, 1), (2, 4),
-               (2, 0), (4, 2), (0, 2), (3, 0), (1, 4),
-               (0, 1), (4, 3), (1, 0), (3, 4), (4, 1),
-               (0, 3), (0, 0), (4, 4), (0, 4), (4, 0)]
-# not good at all, at least for learning, always show same board
-
 
 class Go:
     def __init__(self, my_player, last_board, cur_board):
@@ -327,7 +321,7 @@ class QLearner:
 
     KOMI = -2.5  # Komi BLACK's goal is get higher value, WHITE's goal is get lower value
 
-    def __init__(self, alpha=.7, gamma=.9, init_value=0):
+    def __init__(self, alpha=.9, gamma=.7, init_value=0):
         self.go = None
         self.side = None
         self.alpha = alpha
@@ -406,115 +400,119 @@ class QLearner:
         board = local_go.cur_board
         board_str = board_string(board)
         if board_str not in self.q_values[local_go.my_player]:
-            # init Q
-            # q_val = np.zeros((BOARD_SIZE, BOARD_SIZE))
-            q_val = np.random.randn(BOARD_SIZE * BOARD_SIZE).reshape((BOARD_SIZE,BOARD_SIZE))
-            # for i_move in range(len(local_go.move_list)):
-            #     black_liberty_sum = 0
-            #     white_liberty_sum = 0
-            #     black_sum = 0
-            #     white_sum = 0
-            #     move = local_go.move_list[i_move]
-            #     local_go.test_board = local_go.next_board[i_move]
-            #     for i in range(BOARD_SIZE):
-            #         for j in range(BOARD_SIZE):
-            #             # self.go.test_board = deepcopy(self.go.cur_board)
-            #             # if self.go.test_board[i][j] == BLACK:
-            #             #     black_liberty_sum += 1
-            #             # if self.go.test_board[i][j] == WHITE:
-            #             #     white_liberty_sum += 1
-            #             is_black_liberty = False
-            #             is_white_liberty = False
-            #             if local_go.test_board[i][j] == EMPTY:
-            #                 for place in local_go.get_neighbor((i, j)):
-            #                     neighbor = local_go.test_board[place[0]][place[1]]
-            #                     if neighbor == BLACK:
-            #                         is_black_liberty = True
-            #                     if neighbor == WHITE:
-            #                         is_white_liberty = True
-            #             if is_black_liberty:
-            #                 black_liberty_sum += 1
-            #             if is_white_liberty:
-            #                 white_liberty_sum += 1
-            #
-            #     q_val[move[0]][move[1]] = (self.init_value + (black_liberty_sum - white_liberty_sum) / 40)
-            #     kill_reward = self.board_value(local_go.test_board) - self.board_value(board)
-            #     q_val[move[0]][move[1]] += kill_reward / 2
-            #
-            #     neighbor_ally_list = local_go.get_all_neighbor_ally(move)
-            #     liberty = 0
-            #     for ally in neighbor_ally_list:
-            #         liberty += local_go.get_liberty(ally)
-            #
-            #
-            #     # with the same deviations, less of the other's liberty is better.
-            #     # better connection give higher score
-            #     move_neighbor = math.ceil(len(local_go.get_neighbor_ally(move)) / 4) / 10
-            #     move_corner = math.ceil(len(local_go.get_corner_ally(move)) / 4) / 18
-            #     move_jump = math.ceil(len(local_go.get_jump_ally(move)) / 4) / 30
-            #     move_connection = move_neighbor + move_corner + move_jump
-            #
-            #     fill_self_punishment = 0
-            #     # if len(local_go.get_neighbor(move)) == len(local_go.get_neighbor_ally(move)):
-            #     #     fill_self_punishment = -0.9
-            #         # avoid suicide?
-            #         # if liberty == 1:
-            #         #     fill_self_punishment = -10
-            #     if local_go.my_player == BLACK:
-            #         # q_val[move[0]][move[1]] -= white_liberty_sum / 50
-            #         if len(local_go.get_neighbor(move)) == len(local_go.get_neighbor_ally(move)):
-            #             fill_self_punishment = -0.9
-            #             # avoid suicide?
-            #             if black_liberty_sum == 1:
-            #                 fill_self_punishment = -100
-            #         q_val[move[0]][move[1]] += liberty / 20
-            #         q_val[move[0]][move[1]] += move_connection
-            #         q_val[move[0]][move[1]] += fill_self_punishment
-            #
-            #         # q_val[move[0]][move[1]] += kill_reward * 0.1  # try to kill to win KOMI
-            #     else:
-            #         # q_val[move[0]][move[1]] += black_liberty_sum / 50
-            #         if len(local_go.get_neighbor(move)) == len(local_go.get_neighbor_ally(move)):
-            #             fill_self_punishment = -0.9
-            #             # avoid suicide?
-            #             if white_liberty_sum == 1:
-            #                 fill_self_punishment = -100
-            #         q_val[move[0]][move[1]] -= liberty / 20
-            #         q_val[move[0]][move[1]] -= move_connection
-            #         q_val[move[0]][move[1]] -= fill_self_punishment
-
-            self.q_values[local_go.my_player][board_str] = q_val
+            return "NOVALUE"
         return self.q_values[local_go.my_player][board_str]
+
+    def q(self, local_go):
+        has_q = self.Q(local_go)
+        if has_q != "NOVALUE":
+            return has_q
+        # init Q
+        board = local_go.cur_board
+        q_val = np.zeros((BOARD_SIZE, BOARD_SIZE))
+
+        for i_move in range(len(local_go.move_list)):
+            black_liberty_sum = 0
+            white_liberty_sum = 0
+
+            move = local_go.move_list[i_move]
+            local_go.test_board = local_go.next_board[i_move]
+            for i in range(BOARD_SIZE):
+                for j in range(BOARD_SIZE):
+
+                    is_black_liberty = False
+                    is_white_liberty = False
+                    if local_go.test_board[i][j] == EMPTY:
+                        for place in local_go.get_neighbor((i, j)):
+                            neighbor = local_go.test_board[place[0]][place[1]]
+                            if neighbor == BLACK:
+                                is_black_liberty = True
+                            if neighbor == WHITE:
+                                is_white_liberty = True
+                    if is_black_liberty:
+                        black_liberty_sum += 1
+                    if is_white_liberty:
+                        white_liberty_sum += 1
+
+            q_val[move[0]][move[1]] = (self.init_value + (black_liberty_sum - white_liberty_sum) / 40)
+            kill_reward = self.board_value(local_go.test_board) - self.board_value(board)
+            q_val[move[0]][move[1]] += kill_reward / 2
+
+            neighbor_ally_list = local_go.get_all_neighbor_ally(move)
+            liberty = 0
+            for ally in neighbor_ally_list:
+                liberty += local_go.get_liberty(ally)
+
+            # with the same deviations, less of the other's liberty is better.
+            # better connection give higher score
+            move_neighbor = math.ceil(len(local_go.get_neighbor_ally(move)) / 4) / 10
+            move_corner = math.ceil(len(local_go.get_corner_ally(move)) / 4) / 18
+            move_jump = math.ceil(len(local_go.get_jump_ally(move)) / 4) / 30
+            move_connection = move_neighbor + move_corner + move_jump
+
+            fill_self_punishment = 0
+
+            if local_go.my_player == BLACK:
+                # q_val[move[0]][move[1]] -= white_liberty_sum / 50
+                if len(local_go.get_neighbor(move)) == len(local_go.get_neighbor_ally(move)):
+                    fill_self_punishment = -0.9
+                    # avoid suicide?
+                    if black_liberty_sum == 1:
+                        fill_self_punishment = -100
+                q_val[move[0]][move[1]] += liberty / 20
+                q_val[move[0]][move[1]] += move_connection
+                q_val[move[0]][move[1]] += fill_self_punishment
+
+                q_val[move[0]][move[1]] += kill_reward * 0.1  # try to kill to win KOMI
+            else:
+                # q_val[move[0]][move[1]] += black_liberty_sum / 50
+                if len(local_go.get_neighbor(move)) == len(local_go.get_neighbor_ally(move)):
+                    fill_self_punishment = -0.9
+                    # avoid suicide?
+                    if white_liberty_sum == 1:
+                        fill_self_punishment = -100
+                q_val[move[0]][move[1]] -= liberty / 20
+                q_val[move[0]][move[1]] -= move_connection
+                q_val[move[0]][move[1]] -= fill_self_punishment
+        return q_val
 
     def find_max_action(self):
         """
         Black move strategy
         :return: (x,y)
         """
-        # only find action by q value
-        # return self.find_max_by_alpha_beta()
+        # qlearn first if has value
         move_list = self.go.move_list
+        cur_board_Q = self.Q(self.go)
+        if cur_board_Q == "NOVALUE":
+            return self.find_max_by_alpha_beta()
+        return self.find_max_by_Q(move_list, cur_board_Q)
+        # return self.find_max_by_alpha_beta()
+
         # # shuffle(move_list)
         # if len(move_list) <= MIN_MAX_WIDTH:
         #     return self.find_max_by_alpha_beta()
         # else:
-        cur_board_Q = self.Q(self.go)
-        return self.find_max_by_Q(move_list, cur_board_Q)
+        #     cur_board_Q = self.Q(self.go)
+        #     return self.find_max_by_Q(move_list, cur_board_Q)
 
     def find_min_action(self):
         """
         White move strategy
         :return: (x,y)
         """
-        # only find action by q value
-        # return self.find_min_by_alpha_beta()
+        # qlearn first if has value
         move_list = self.go.move_list
+        cur_board_Q = self.Q(self.go)
+        if cur_board_Q == "NOVALUE":
+            return self.find_min_by_alpha_beta()
+        return self.find_min_by_Q(move_list, cur_board_Q)
         #
         # if len(move_list) <= MIN_MAX_WIDTH:
         #     return self.find_min_by_alpha_beta()
         # else:
-        cur_board_Q = self.Q(self.go)
-        return self.find_min_by_Q(move_list, cur_board_Q)
+        #     cur_board_Q = self.Q(self.go)
+        #     return self.find_min_by_Q(move_list, cur_board_Q)
 
     def find_max_by_Q(self, move_list, cur_board_Q):
         """
@@ -580,17 +578,28 @@ class QLearner:
 
         if len(move_list) == 0:
             return "PASS", self.board_value(cur_board)
-        if 4 * step > self.min_max_width or step > self.min_max_depth:
-            move, Q = self.find_max_by_Q(move_list, self.Q(go_test))
-            return move, Q + self.board_value(cur_board)
+        if step > self.min_max_depth:
+            # move, Q = self.find_max_by_Q(move_list, self.Q(go_test))
+            return "move", self.board_value(cur_board)
 
-        q_board = self.Q(go_test)
+        q_board = self.q(go_test)
         order = np.argsort(-q_board.reshape(25))
         ordered_move_list = [(int(x/BOARD_SIZE), x%BOARD_SIZE) for x in order]
 
+        non_suicide_move_list = []
+        for move in move_list:
+            if q_board[move[0]][move[1]] > -50:
+                non_suicide_move_list.append(move)
+
+        move_list = non_suicide_move_list
+
+        if len(move_list) == 0:
+            return "PASS", self.board_value(cur_board)
+
         v = -np.inf
         max_action = ()
-        for move in ordered_move_list:
+        for move_i in range(max(len(ordered_move_list), MIN_MAX_WIDTH)):
+            move = ordered_move_list[move_i]
             if move not in move_list:
                 continue
             i = move_list.index(move)
@@ -617,17 +626,28 @@ class QLearner:
 
         if len(move_list) == 0:
             return "PASS", self.board_value(cur_board)
-        if 4 * step > self.min_max_width or step > self.min_max_depth:
-            move, Q = self.find_min_by_Q(move_list, self.Q(go_test))
-            return move, Q + self.board_value(cur_board)
+        if step > self.min_max_depth:
+            # move, Q = self.find_min_by_Q(move_list, self.Q(go_test))
+            return "move", self.board_value(cur_board)
 
-        q_board = self.Q(go_test)
+        q_board = self.q(go_test)
         order = np.argsort(q_board.reshape(25))
         ordered_move_list = [(int(x / BOARD_SIZE), x % BOARD_SIZE) for x in order]
 
+        non_suicide_move_list = []
+        for move in move_list:
+            if q_board[move[0]][move[1]] < 50:
+                non_suicide_move_list.append(move)
+
+        move_list = non_suicide_move_list
+
+        if len(move_list) == 0:
+            return "PASS", self.board_value(cur_board)
+
         v = np.inf
         min_action = ()
-        for move in ordered_move_list:
+        for move_i in range(max(len(ordered_move_list), MIN_MAX_WIDTH)):
+            move = ordered_move_list[move_i]
             if move not in move_list:
                 continue
             i = move_list.index(move)
@@ -669,13 +689,13 @@ class QLearner:
         """
         if self.side == BLACK:
             max_action, max_next_Q = self.find_max_action()
-            if max_next_Q < -50:
+            if max_next_Q < -20:
                 # self.visual()
                 return "PASS"
             return max_action
         else:
             min_action, min_next_Q = self.find_min_action()
-            if min_next_Q > 50:
+            if min_next_Q > 20:
                 # self.visual()
                 return "PASS"
             return min_action
@@ -696,6 +716,12 @@ class QLearner:
             q_t1 = self.Q(go2)
             # q_t = self.q_values[self.board_string(board_before)]
             # q_t1 = self.q_values[self.board_string(board_after)]
+            if q_t == "NOVALUE":
+                q_t = np.zeros((BOARD_SIZE,BOARD_SIZE))
+
+            if q_t1 == "NOVALUE":
+                q_t1 = np.zeros((BOARD_SIZE,BOARD_SIZE))
+
             max_q_value = np.max(q_t1)
 
             q_t[move[0]][move[1]] = (1 - self.alpha) * q_t[move[0]][move[1]] \

@@ -7,14 +7,16 @@ from competition.player2.my_player3_0_1 import QLearner as p2
 from competition.player3.my_player3_0_1 import QLearner as p3
 from competition.player4.my_player3_0_1 import QLearner as p4
 from competition.player5.my_player3_0_1 import QLearner as p5
+from competition.player6.my_player3_0_1 import QLearner as p6
+from competition.Random.RandomPlayer import RandomPlayer as p7
 from competition.player1.my_player3_0_1 import Go as GO
 import host
 
 import time
 
 
-black_player_pool = [p1,p2,p3,p4,p5]
-white_player_pool = [p1,p2,p3,p4,p5]
+black_player_pool = [p1,p2,p3,p4,p5,p6,p7]
+white_player_pool = [p1,p2,p3,p4,p5,p6,p7]
 player_count = len(black_player_pool)
 
 
@@ -61,6 +63,14 @@ def learn_loop(x, round, home_court, win_black, win_white, lock):
     black_state_action_list = []
     white_state_action_list = []
 
+    black_cur_board = None
+    black_move = None
+    black_res_board = None
+
+    white_cur_board = None
+    white_move = None
+    white_res_board = None
+
     for i in range(12):
 
         # black
@@ -82,7 +92,15 @@ def learn_loop(x, round, home_court, win_black, win_white, lock):
 
         cur_board_ = host_GO.board
 
-        black_state_action_list.append((last_board_, black_res, deepcopy(cur_board_)))
+        black_cur_board = deepcopy(last_board_)
+        black_move = black_res
+        white_res_board = deepcopy(cur_board_)
+
+        if white_cur_board is not None and white_move is not None and white_res_board is not None:
+            white_state_action_list.append((white_cur_board, white_move, white_res_board))
+        white_cur_board = None
+        white_move = None
+        white_res_board = None
 
         host_GO.visualize_board()
         print(time_b)
@@ -106,7 +124,15 @@ def learn_loop(x, round, home_court, win_black, win_white, lock):
 
         cur_board_ = host_GO.board
 
-        white_state_action_list.append((last_board_, white_res, deepcopy(cur_board_)))
+        white_cur_board = deepcopy(last_board_)
+        white_move = white_res
+        black_res_board = deepcopy(cur_board_)
+
+        if black_cur_board is not None and black_move is not None and black_res_board is not None:
+            black_state_action_list.append((black_cur_board, black_move, black_res_board))
+        black_cur_board = None
+        black_move = None
+        black_res_board = None
 
         host_GO.visualize_board()
         print(time_w)
@@ -127,7 +153,7 @@ def learn_loop(x, round, home_court, win_black, win_white, lock):
 
 def tournament():
     # player_count = 2
-    for season in range(10):
+    for season in range(1):
         print("season" + str(season))
         # learn_loop(0,0,True)
         for round in range(player_count):
@@ -147,7 +173,7 @@ def tournament():
 
 
 def test():
-    learn_loop(2, 1, True, winblack, winwhite, lock)
+    learn_loop(5, 1, False, winblack, winwhite, lock)
     print(winblack)
     print(winwhite)
 
@@ -158,8 +184,8 @@ if __name__ == "__main__":
     winwhite = manager.list([0] * player_count)
     lock = manager.Lock()
 
-    tournament()
-    # test()
+    # tournament()
+    test()
 
 
 
